@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: electro_dougaz
+      POSTGRES_USER: electro
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local-development-only}
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U electro -d electro_dougaz']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - '127.0.0.1:5432:5432'
+    volumes:
+      # PostgreSQL 18 stores clusters in major-version-specific subdirectories.
+      - postgres-data:/var/lib/postgresql
+    restart: unless-stopped
+
+volumes:
+  postgres-data:

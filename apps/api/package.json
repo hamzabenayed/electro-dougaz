@@ -1,0 +1,41 @@
+{
+  "name": "@electro/api",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "nest start --watch",
+    "build": "nest build",
+    "start": "node dist/main.js",
+    "lint": "eslint src test",
+    "test": "vitest run",
+    "test:flow": "pnpm build && node test/commerce-flow.cjs",
+    "typecheck": "tsc --noEmit",
+    "admin:create": "tsx src/scripts/create-admin.ts"
+  },
+  "dependencies": {
+    "@electro/contracts": "workspace:*",
+    "@fastify/helmet": "^13.0.0",
+    "@fastify/static": "^10.1.2",
+    "@nestjs/common": "^11.0.0",
+    "@nestjs/config": "^4.0.0",
+    "@nestjs/core": "^11.0.0",
+    "@nestjs/platform-fastify": "^11.0.0",
+    "@nestjs/swagger": "^11.0.0",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.0",
+    "dotenv": "^17.4.1",
+    "fastify": "5.11.3",
+    "pg": "^8.0.0",
+    "reflect-metadata": "^0.2.0",
+    "rxjs": "^7.8.0",
+    "sharp": "0.35.5"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^11.0.0",
+    "@nestjs/testing": "^11.0.0",
+    "@types/pg": "^8.0.0",
+    "@types/supertest": "^6.0.0",
+    "supertest": "^7.0.0",
+    "tsx": "^4.0.0"
+  }
+}
