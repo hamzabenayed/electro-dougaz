@@ -370,10 +370,66 @@ Apply `pnpm db:migrate` before starting the updated API (new migration:
 `apps/shared/migrations/20261021010000_product_details.sql`). `MEDIA_ROOT` is the image storage directory
 resolved from the API working directory; the example uses `../../media-data`. Use an absolute path
 and a persistent backed-up volume in production. `MEDIA_DIRECTORY` is an optional override used by
-isolated tests. The image bytes stay on disk, while PostgreSQL stores image references and metadata.
-Multi-instance API deployments need shared storage or an object-storage adapter before scaling.
+isolated tests. With `MEDIA_DRIVER=local` (the default), image bytes stay on disk, while PostgreSQL
+stores image references and metadata. Multi-instance deployments must use shared storage or the
+Cloudinary adapter described below; never rely on an ephemeral host's disk for uploaded photos.
 The API JSON request limit is 8 MB to accommodate a single base64-encoded 5 MB image; configure the
 reverse proxy accordingly and enforce HTTPS and upstream request limits in production.
+
+### Cloudinary product images (free-hosting test deployment)
+
+Set these **backend-only** environment variables in Render's Environment settings:
+
+```dotenv
+MEDIA_DRIVER=cloudinary
+CLOUDINARY_URL=cloudinary://<api_key>:<api_secret>@<cloud_name>
+```
+
+Replace placeholders privately with credentials from Cloudinary Settings > API Keys. URL-encode
+credential characters if needed. Never commit the real URL, put it in `.env.example`, add a
+`NEXT_PUBLIC_` prefix, or expose it in screenshots/logs. Keep local `.env` on `MEDIA_DRIVER=local`
+unless deliberately testing Cloudinary. No unsigned upload preset or frontend credential is needed.
+The API fails startup for an unknown driver, malformed URL or missing Cloudinary configuration.
+
+- The existing manager-only upload endpoint validates/normalizes JPG/JFIF/PNG/WebP to metadata-free,
+  bounded WebP before sending a signed HTTPS upload to Cloudinary. SVG and animated files stay rejected.
+- Files use authenticated delivery, not public Cloudinary URLs. The existing API reads the bytes
+  only after checking product/category visibility (or admin authentication), using a short-lived
+  signed download URL that never reaches the browser. Draft/hidden images remain protected; image
+  responses remain `no-store`. This intentionally uses API bandwidth and Cloudinary authenticated
+  downloads (no CDN caching; Cloudinary documents double bandwidth usage for these downloads).
+  Monitor both providers' allowances; this prioritizes existing privacy behavior for the test phase.
+- Provider calls have 20-second timeouts, fixed HTTPS destinations, no redirects, bounded download
+  size and sanitized errors. Credentials and upstream error bodies are not returned or logged.
+- Content-hash keys and non-overwriting uploads make retries safe. A product-row lock serializes
+  uploads/limit checks; it may be held for the provider timeout. Eight photos per product remain
+  the limit. Failed storage writes do not create image associations. A successful upload followed
+  by a database failure can leave an unlinked asset; arrange retention-aware housekeeping later.
+- PostgreSQL `object_key` stores `cloudinary:<sha256>.webp` for remote files; old hash-only keys
+  continue to use local disk. **No schema migration is required for this adapter.** Switching drivers
+  does not transfer old images. For the new hosted test shop, re-upload photos through its admin UI.
+  Keep the same Cloudinary product environment across redeployments. Local records still need their
+  original files; switching back to local does not download remote assets automatically.
+- Removing a photo unlinks its database association only; the stored asset is retained for recovery,
+  just like local files. Do not bulk-delete Cloudinary assets without checking DB references/backups.
+
+Verification (no live Cloudinary account used by automated tests):
+
+```powershell
+pnpm --filter @electro/api test
+pnpm --filter @electro/api typecheck
+pnpm --filter @electro/api build
+pnpm --filter @electro/api test:flow
+```
+
+`test:flow` requires local PostgreSQL and forces local media storage in an isolated schema/temp
+directory; it never uploads to Cloudinary. Mocked adapter/service tests cover signing, privacy gates,
+retries, persistence across instances, validation, remote failures and credential redaction.
+After setting real secrets, smoke-test the hosted service: upload a draft photo (admin preview works,
+public image endpoint returns 404), publish and view it in the shop, restart/redeploy the API and
+check it again, then hide/remove it and confirm the public endpoint returns 404. Confirm no provider
+secret or signed Cloudinary URL appears in browser responses. Live provider verification requires
+your configured account; mocked tests cannot establish that the account credentials/quotas work.
 
 `API_INTERNAL_BASE_URL` optionally overrides the server-side API address. Browser requests still use
 `NEXT_PUBLIC_API_BASE_URL`; neither value contains credentials. UI tests run a synthetic catalogue

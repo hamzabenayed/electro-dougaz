@@ -20,6 +20,8 @@ async function main() {
   const schema = 'commerce_test_' + randomUUID().replaceAll('-', '');
   const mediaDirectory = mkdtempSync(path.join(tmpdir(), 'electro-media-test-'));
   process.env.MEDIA_DIRECTORY = mediaDirectory;
+  process.env.MEDIA_DRIVER = 'local';
+  process.env.CLOUDINARY_URL = '';
   assert(/^commerce_test_[a-f0-9]{32}$/.test(schema));
   const pool = new Pool({ connectionString: env.DATABASE_URL });
   let app;

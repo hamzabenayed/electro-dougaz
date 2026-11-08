@@ -1,10 +1,8 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { createHash } from 'node:crypto';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
 import sharp from 'sharp';
 import { DatabaseService } from '../../database/database.service.js';
 import type { ProductImageDto } from './catalog.dto.js';
+import { ProductMediaStorage } from './media-storage.js';
 
 export async function normalizeProductImage(data: string): Promise<Buffer> {
   const source = Buffer.from(data, 'base64');
@@ -15,11 +13,13 @@ export async function normalizeProductImage(data: string): Promise<Buffer> {
     const metadata = await decoder.metadata();
     if (!['jpeg', 'png', 'webp'].includes(metadata.format) || (metadata.pages ?? 1) > 1)
       throw new Error('Unsupported image');
-    return await decoder
+    const output = await decoder
       .rotate()
       .resize(1800, 1800, { fit: 'inside', withoutEnlargement: true })
       .webp({ quality: 85 })
       .toBuffer();
+    if (output.length > 5 * 1024 * 1024) throw new Error('Normalized image too large');
+    return output;
   } catch {
     throw new BadRequestException('Photo invalide : utilisez JPG, JFIF, PNG ou WebP non animé');
   }
@@ -27,17 +27,11 @@ export async function normalizeProductImage(data: string): Promise<Buffer> {
 
 @Injectable()
 export class MediaService {
-  private readonly directory = resolve(
-    process.env.MEDIA_DIRECTORY || process.env.MEDIA_ROOT || 'uploads/products'
-  );
+  private readonly storage = new ProductMediaStorage();
   constructor(private readonly database: DatabaseService) {}
   async upload(productId: string, input: ProductImageDto, actorId: string) {
     const bytes = await normalizeProductImage(input.data);
-    const key = `${createHash('sha256').update(bytes).digest('hex')}.webp`;
-    await mkdir(this.directory, { recursive: true });
-    await writeFile(resolve(this.directory, key), bytes, { flag: 'wx' }).catch((error: unknown) => {
-      if ((error as { code?: string }).code !== 'EEXIST') throw error;
-    });
+    const key = this.storage.keyFor(bytes);
     return await this.database.transaction(async (client) => {
       const product = await client.query('SELECT id FROM products WHERE id=$1 FOR UPDATE', [
         productId
@@ -53,6 +47,9 @@ export class MediaService {
         [productId]
       );
       if (count.rows[0]!.count >= 8) throw new BadRequestException('Maximum 8 photos par produit');
+      // Validate existence/limit before storage. The product lock serializes concurrent uploads.
+      // Storage is idempotent; a DB failure may leave a retained object, never a broken association.
+      await this.storage.write(key, bytes);
       const saved = await client.query<{ id: string }>(
         'INSERT INTO product_media(product_id,object_key,alt_text,sort_order) VALUES ($1,$2,$3,$4) RETURNING id',
         [productId, key, input.alt, count.rows[0]!.next]
@@ -70,12 +67,8 @@ export class MediaService {
       [id, admin]
     );
     const key = result.rows[0]?.object_key;
-    if (!key || !/^[a-f0-9]{64}\.webp$/.test(key)) throw new NotFoundException('Image introuvable');
-    try {
-      return await readFile(resolve(this.directory, key));
-    } catch {
-      throw new NotFoundException('Image introuvable');
-    }
+    if (!key) throw new NotFoundException('Image introuvable');
+    return this.storage.read(key);
   }
   async remove(productId: string, id: string, actorId: string) {
     // Keep the file for recoverability; only unlink its catalogue association.
