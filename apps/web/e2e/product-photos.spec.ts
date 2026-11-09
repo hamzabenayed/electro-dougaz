@@ -138,3 +138,86 @@ test('saved and newly selected photos share the eight-photo limit', async ({ pag
     .setInputFiles(Array.from({ length: 6 }, (_, index) => file(index)));
   await expect(page.locator('.admin-image-preview')).toHaveCount(6);
 });
+
+for (const scenario of ['remove', 'replace', 'retry replacement'] as const) {
+  test(`saved product photos: ${scenario}`, async ({ page }) => {
+    await mockApi(page);
+    let images = [...product.images];
+    let deleteAttempts = 0;
+    let uploads = 0;
+    const writes: string[] = [];
+    await page.route('**/api/v1/admin/products/**', async (route) => {
+      const request = route.request();
+      const path = new URL(request.url()).pathname;
+      const method = request.method();
+      if (path.endsWith('/accessories')) return route.fulfill({ json: [] });
+      if (method === 'PUT') {
+        expect(request.headers()['content-type']).toBe('application/json');
+        writes.push('save');
+        return route.fulfill({ json: { id: product.id } });
+      }
+      if (method === 'DELETE') {
+        deleteAttempts++;
+        // Reproduce Fastify's rejection so this test fails against the old request helper.
+        if (
+          request.headers()['content-type']?.includes('application/json') &&
+          !request.postData()
+        ) {
+          return route.fulfill({
+            status: 400,
+            json: { message: 'Body cannot be empty when content-type is application/json' }
+          });
+        }
+        expect(request.headers().authorization).toBe('Bearer photo-test');
+        expect(request.postData()).toBeNull();
+        if (scenario === 'retry replacement' && deleteAttempts === 1) {
+          return route.fulfill({ status: 503, json: { message: 'Temporary photo failure' } });
+        }
+        images = images.filter((image) => !path.endsWith(`/${image.id}`));
+        writes.push('remove');
+        return route.fulfill({ json: { id: 'image-one' } });
+      }
+      if (method === 'POST' && path.endsWith('/images')) {
+        expect(request.headers()['content-type']).toBe('application/json');
+        const body = request.postDataJSON() as { data: string; alt: string };
+        expect(body.data).toBe(photo.toString('base64'));
+        expect(body.alt).toBe(product.name);
+        uploads++;
+        images.push({ id: 'new-image', alt: body.alt });
+        writes.push('upload');
+        return route.fulfill({ status: 201, json: { id: 'new-image' } });
+      }
+      return route.fulfill({ json: { ...product, images } });
+    });
+    await page.goto('/admin/produits/photo-product');
+    await expect(page.locator('.saved-photo')).toHaveCount(2);
+    await page.locator('.saved-photo').first().getByRole('button').click();
+    if (scenario !== 'remove') {
+      await page
+        .locator('#product-images')
+        .setInputFiles({ name: 'replacement.png', mimeType: 'image/png', buffer: photo });
+    }
+    const save = page.getByRole('button', { name: 'Enregistrer les modifications', exact: true });
+    await save.click();
+    if (scenario === 'retry replacement') {
+      await expect(page.locator('.admin-image-error[role="alert"]')).toContainText(
+        'Temporary photo failure'
+      );
+      expect(uploads).toBe(0);
+      await save.click();
+    }
+    await expect(page).toHaveURL(/\/admin\/produits\?created=1$/);
+    expect(deleteAttempts).toBe(scenario === 'retry replacement' ? 2 : 1);
+    expect(uploads).toBe(scenario === 'remove' ? 0 : 1);
+    expect(writes).toEqual(
+      scenario === 'remove'
+        ? ['save', 'remove']
+        : scenario === 'replace'
+          ? ['save', 'remove', 'upload']
+          : ['save', 'save', 'remove', 'upload']
+    );
+    await page.goto('/admin/produits/photo-product');
+    await expect(page.locator('.saved-photo')).toHaveCount(scenario === 'remove' ? 1 : 2);
+    expect(images.some((image) => image.id === 'image-one')).toBe(false);
+  });
+}

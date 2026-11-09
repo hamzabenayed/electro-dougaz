@@ -103,7 +103,7 @@ describe('Admin experience', () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     const request = fetchMock.mock.calls[1]?.[1];
     expect(request?.method).toBe('POST');
-    expect(request?.headers).toMatchObject({ Authorization: 'Bearer test-token' });
+    expect(new Headers(request?.headers).get('Authorization')).toBe('Bearer test-token');
     if (typeof request?.body !== 'string') throw new Error('Expected a JSON request body');
     expect(JSON.parse(request.body)).toMatchObject({
       name: 'Téléphone Test',

@@ -42,10 +42,16 @@ export class ApiError extends Error {
 export async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   const base =
     typeof window === 'undefined' ? (process.env.API_INTERNAL_BASE_URL ?? apiBaseUrl) : apiBaseUrl;
+  const headers = new Headers(init.headers);
+  // Callers serialize JSON themselves. Empty requests must not advertise a JSON body;
+  // FormData/Blob bodies must retain their native content type (and multipart boundary).
+  if (typeof init.body === 'string' && init.body.length > 0 && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
   const response = await fetch(`${base}${path}`, {
     cache: 'no-store',
     ...init,
-    headers: { 'Content-Type': 'application/json', ...init.headers }
+    headers
   });
   if (!response.ok) {
     const body = (await response.json().catch(() => null)) as {

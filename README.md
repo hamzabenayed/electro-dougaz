@@ -392,6 +392,17 @@ the main catalogue image. Each product accepts **8 photos total, 5 MB per photo*
 thumbnail/text separation, editor responsiveness at 320/768/1440px in both themes, and the combined
 saved/new photo limit (build the web app first).
 
+The shared API client adds a default JSON `Content-Type` only for non-empty serialized string
+bodies. Bodyless requests (notably photo `DELETE`) omit that default, and FormData/Blob requests
+retain browser-generated types. Explicit caller headers and admin authentication are preserved via
+`Headers`. This prevents Fastify rejecting photo removal before replacement uploads can run.
+Unit tests cover body/header variants, empty responses and session errors; photo browser tests cover
+removal, replacement, and retry after a failed deletion without uploading twice. After deploying a
+frontend change, refresh the admin page, remove one saved photo, optionally select a replacement,
+save, reopen the product and verify its saved photos and storefront gallery. Product details save
+before photo operations; a photo failure does not undo those details. Use an existing test product,
+not a duplicate, when retrying. No database migration or provider-secret change is needed.
+
 Set these **backend-only** environment variables in Render's Environment settings:
 
 ```dotenv
