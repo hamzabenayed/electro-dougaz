@@ -378,6 +378,20 @@ reverse proxy accordingly and enforce HTTPS and upstream request limits in produ
 
 ### Cloudinary product images (free-hosting test deployment)
 
+Public `/api/v1/media/:id` responses explicitly set `Cross-Origin-Resource-Policy: cross-origin`
+after catalogue visibility checks, so images can be embedded by a separately hosted storefront.
+Other routes retain Helmet's restrictive default, and admin images remain authenticated and
+`private, no-store`. CORS settings still govern browser API requests; do not disable Helmet globally
+to fix image embedding. Regression tests exercise these headers with the actual Helmet plugin.
+
+Admin list thumbnails are bounded to their 48px container and use `object-fit: contain`, independent
+of the larger editor previews. Saved-photo rows reserve separate image/text/action columns and
+stack the action on small screens, using existing light/dark theme tokens. The first saved photo is
+the main catalogue image. Each product accepts **8 photos total, 5 MB per photo** (JPG/JFIF, PNG or WebP).
+`pnpm --filter @electro/web exec playwright test product-photos.spec.ts` verifies loaded images,
+thumbnail/text separation, editor responsiveness at 320/768/1440px in both themes, and the combined
+saved/new photo limit (build the web app first).
+
 Set these **backend-only** environment variables in Render's Environment settings:
 
 ```dotenv

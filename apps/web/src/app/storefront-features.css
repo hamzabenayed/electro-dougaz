@@ -342,13 +342,16 @@
   margin-top: 1rem;
 }
 .saved-photo {
-  display: flex;
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
   gap: 1rem;
-  flex-wrap: wrap;
   padding: 1rem 0;
   border-top: 1px solid var(--line);
+}
+.saved-photo > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .admin-saved-image {
   display: block;
@@ -385,6 +388,16 @@
   }
 }
 @media (max-width: 540px) {
+  .saved-photo {
+    grid-template-columns: 80px minmax(0, 1fr);
+  }
+  .saved-photo .admin-saved-image {
+    width: 80px;
+  }
+  .saved-photo > button {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
   .catalog-filters {
     grid-template-columns: minmax(0, 1fr);
     padding: 1rem;

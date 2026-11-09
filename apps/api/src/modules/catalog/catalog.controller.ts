@@ -89,6 +89,9 @@ export class CatalogController {
     const bytes = await this.media.read(id);
     response
       .header('Content-Type', 'image/webp')
+      // The public shop and API can live on different origins (Netlify / Render).
+      // Set this only after read() has checked product/category visibility.
+      .header('Cross-Origin-Resource-Policy', 'cross-origin')
       .header('Cache-Control', 'no-store')
       .header('X-Content-Type-Options', 'nosniff');
     return response.send(bytes);
