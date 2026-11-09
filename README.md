@@ -557,6 +557,17 @@ live customer data or a physical printer.
 
 ## Storefront promotion showcase
 
+On phones (up to 760px), the homepage header reserves separate grid columns for the menu,
+brand and cart. The cart displays its icon/count rather than a wide total; its accessible
+label and drawer retain cart details. Only the delivery announcement is shown on phones,
+and search stays on its own row. Responsive tests check overlap, tap targets and cart opening.
+
+The homepage mobile tab bar reserves `--hosting-badge-space: 4rem` below its controls for
+Netlify's fixed branding badge, plus the device safe area. Matching page padding keeps the
+footer scrollable above both overlays. This deliberately also leaves space in local previews
+or browsers where the badge is dismissed. Set the variable to `0px` when the badge is disabled
+on the hosting plan. It does not hide, reposition or depend on Netlify's injected markup.
+
 The homepage header and hero share a branded blue/red treatment, highlighted promotions navigation,
 layered decorative background, framed product spotlight and prominent savings/discount labels.
 Entrance and hover effects use CSS transforms/opacity, stop after entry (no perpetual decorative

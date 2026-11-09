@@ -884,13 +884,33 @@ button {
   }
 }
 @media (max-width: 760px) {
+  /* Netlify's fixed badge is outside our layout. Keep navigation above its footprint.
+     Set this to 0px when the hosting badge is disabled. */
+  .storefront-home {
+    --hosting-badge-space: 4rem;
+    padding-bottom: var(--hosting-badge-space);
+  }
+  .storefront-home .mobile-bottom-nav {
+    bottom: calc(var(--hosting-badge-space) + env(safe-area-inset-bottom));
+    min-height: 4.25rem;
+    padding-bottom: 0;
+  }
+  .storefront-home::after {
+    content: '';
+    position: fixed;
+    inset: auto 0 0;
+    height: calc(var(--hosting-badge-space) + env(safe-area-inset-bottom));
+    background: var(--surface);
+    pointer-events: none;
+    z-index: 49;
+  }
   body {
     padding-bottom: calc(4.4rem + env(safe-area-inset-bottom));
   }
   .container {
     width: min(calc(100% - 1.25rem), var(--container));
   }
-  .announcement-note,
+  .announcement .announcement-note,
   .announcement a {
     display: none;
   }
@@ -899,19 +919,33 @@ button {
   }
   .header-main {
     min-height: 4.2rem;
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr) 44px;
+    gap: 0.5rem;
   }
   .mobile-menu {
     display: grid;
   }
-  .brand {
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
+  .header-main .brand {
+    position: static;
+    transform: none;
+    justify-self: center;
+    min-width: 0;
+    gap: 0.35rem;
   }
-  .brand-mark {
-    width: 3.5rem;
-    height: 2.6rem;
+  .header-main .brand-mark {
+    width: 3rem;
+    height: 2.5rem;
+    flex-shrink: 0;
+  }
+  .header-main .brand-name {
+    display: block;
+    font-size: 0.8rem;
+    white-space: nowrap;
+  }
+  .header-main .header-actions {
+    min-width: 0;
+    justify-self: end;
   }
   .header-main > .search {
     display: none;
@@ -924,7 +958,22 @@ button {
     display: none;
   }
   .header-actions .cart-action {
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr;
+    min-width: 44px;
+    width: 44px;
+    min-height: 44px;
+    height: 44px;
+    padding: 0;
+    place-items: center;
+  }
+  .header-actions .cart-action > span:not(.cart-symbol) {
+    display: none;
+  }
+  .header-actions .cart-action b {
+    left: auto;
+    right: -0.2rem;
+    top: -0.25rem;
   }
   .mobile-search-wrap {
     display: block;
@@ -935,9 +984,14 @@ button {
   }
   .mobile-search button {
     width: 3rem;
+    min-height: 44px;
+    flex-shrink: 0;
     padding: 0;
     display: grid;
     place-items: center;
+  }
+  .mobile-search > svg {
+    flex-shrink: 0;
   }
   .category-nav {
     display: none;
