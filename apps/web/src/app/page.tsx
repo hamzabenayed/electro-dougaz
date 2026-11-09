@@ -6,6 +6,8 @@ import { CartSummaryButton, MobileCartButton } from '../components/cart-controls
 import { apiRequest, type ApiProduct, type ApiCategory } from '../lib/api';
 import { fromApiProduct } from '../lib/catalog';
 import { CatalogCard } from '../components/catalog-card';
+import { HeroPromotions } from '../components/hero-promotions';
+import { selectHeroPromotions } from '../lib/hero-promotions';
 export const dynamic = 'force-dynamic';
 import { SiteFooter } from '../components/site-footer';
 
@@ -121,9 +123,10 @@ export default async function HomePage() {
   const [records, categoryRecords, offers] = await Promise.all([
     apiRequest<ApiProduct[]>('/products?limit=8'),
     apiRequest<ApiCategory[]>('/categories'),
-    apiRequest<ApiProduct[]>('/products?promotion=1&available=1&limit=4').catch(() => [])
+    apiRequest<ApiProduct[]>('/products?promotion=1&available=1&limit=100').catch(() => [])
   ]);
   const products = records.map(fromApiProduct);
+  const heroOffers = selectHeroPromotions(offers.map(fromApiProduct));
   const categories = categoryRecords.map((category): Category => ({
     ...category,
     icon: categoryStyles.find((item) => item.slug === category.slug)?.icon ?? 'grid',
@@ -215,7 +218,7 @@ export default async function HomePage() {
                 partout en Tunisie.
               </p>
               <div className="hero-actions">
-                <Link className="primary-button" href="#produits">
+                <Link className="primary-button" href={offers.length ? '#promotions' : '#produits'}>
                   Découvrir les offres <Icon name="arrow" size={20} />
                 </Link>
                 <Link className="secondary-button" href="#categories">
@@ -231,25 +234,29 @@ export default async function HomePage() {
                 </span>
               </div>
             </div>
-            <div className="hero-showcase" aria-label="Offre vedette">
-              <div className="showcase-orbit orbit-one" />
-              <div className="showcase-orbit orbit-two" />
-              <div className="showcase-product">
-                <Icon name="laptop" size={168} />
+            {heroOffers.length ? (
+              <HeroPromotions products={heroOffers} />
+            ) : (
+              <div className="hero-showcase" aria-label="Offre vedette">
+                <div className="showcase-orbit orbit-one" />
+                <div className="showcase-orbit orbit-two" />
+                <div className="showcase-product">
+                  <Icon name="laptop" size={168} />
+                </div>
+                <div className="showcase-card price-card">
+                  <small>À partir de</small>
+                  <strong>Votre sélection</strong>
+                </div>
+                <div className="showcase-card delivery-card">
+                  <Icon name="truck" size={23} />
+                  <span>
+                    <strong>Livraison suivie</strong>
+                    <small>partout en Tunisie</small>
+                  </span>
+                </div>
+                <span className="showcase-badge">Nouveauté</span>
               </div>
-              <div className="showcase-card price-card">
-                <small>À partir de</small>
-                <strong>Votre sélection</strong>
-              </div>
-              <div className="showcase-card delivery-card">
-                <Icon name="truck" size={23} />
-                <span>
-                  <strong>Livraison suivie</strong>
-                  <small>partout en Tunisie</small>
-                </span>
-              </div>
-              <span className="showcase-badge">Nouveauté</span>
-            </div>
+            )}
           </div>
         </section>
         <section className="benefits" aria-label="Nos engagements">
@@ -322,19 +329,21 @@ export default async function HomePage() {
           </div>
         </section>
         {offers.length > 0 && (
-          <section className="section products-section offers-section">
-            <div className="offers-heading">
-              <div>
-                <p className="section-kicker">Promotions</p>
-                <h2>Les offres du moment</h2>
-                <p>Des économies réelles sur vos produits préférés.</p>
+          <section className="section products-section offers-section" id="promotions">
+            <div className="container offers-panel">
+              <div className="offers-heading">
+                <div>
+                  <p className="section-kicker">Promotions</p>
+                  <h2>Les offres du moment</h2>
+                  <p>Des économies réelles sur vos produits préférés.</p>
+                </div>
+                <Link href="/promotions">Toutes les promotions →</Link>
               </div>
-              <Link href="/promotions">Toutes les promotions →</Link>
-            </div>
-            <div className="product-grid">
-              {offers.map((p) => (
-                <CatalogCard key={p.id} product={fromApiProduct(p)} />
-              ))}
+              <div className="product-grid">
+                {offers.slice(0, 4).map((p) => (
+                  <CatalogCard key={p.id} product={fromApiProduct(p)} />
+                ))}
+              </div>
             </div>
           </section>
         )}

@@ -3,8 +3,9 @@ import { apiBaseUrl } from '../lib/api';
 export function ProductImage({
   slug,
   name,
-  imageId
-}: Readonly<{ slug: string; name: string; imageId?: string }>) {
+  imageId,
+  eager = false
+}: Readonly<{ slug: string; name: string; imageId?: string; eager?: boolean }>) {
   return (
     <img
       src={
@@ -18,7 +19,7 @@ export function ProductImage({
         if (event.currentTarget.getAttribute('src') !== fallback)
           event.currentTarget.src = fallback;
       }}
-      loading="lazy"
+      loading={eager ? 'eager' : 'lazy'}
       width={320}
       height={240}
       style={{ width: '100%', height: '100%', maxHeight: 420, objectFit: 'contain' }}

@@ -554,3 +554,17 @@ two-order PDF pagination. Run a hosted smoke test after migration/deployment: hi
 category, add five units and verify the history, select two test orders, save the PDF and check
 both references, logo, totals and page breaks. These automated checks do not verify hosted secrets,
 live customer data or a physical printer.
+
+## Storefront promotion showcase
+
+The homepage hero samples up to three distinct, in-stock active promotions from the first
+100 eligible catalogue results on each page request. It displays one offer at a time,
+with its actual image, discount, previous price, current price, savings and product-option link.
+Offers rotate every six seconds; hover, keyboard focus, a hidden browser tab or reduced-motion
+preferences suspend rotation. Manual navigation pauses rotation until explicitly resumed.
+One offer has no carousel controls; no offers retains the original hero illustration.
+The homepage promotion grid uses a padded, bounded responsive panel and shows up to four offers.
+
+Checks: `pnpm --filter @electro/web test`, `pnpm --filter @electro/web build`, then
+`pnpm --filter @electro/web exec playwright test e2e/hero-promotions.spec.ts`.
+Browser checks use the synthetic catalogue, not the production database.

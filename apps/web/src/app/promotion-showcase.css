@@ -1,0 +1,210 @@
+.hero-grid > * {
+  min-width: 0;
+}
+.hero-offers {
+  width: 100%;
+  max-width: 29rem;
+  justify-self: center;
+  min-width: 0;
+}
+.hero-offers-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0 0.25rem 0.85rem;
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 750;
+}
+.hero-offer {
+  display: block;
+  overflow: hidden;
+  border-radius: 1.5rem;
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 24px 64px #080e4938;
+  border: 1px solid var(--line);
+}
+.hero-offer-image {
+  position: relative;
+  height: clamp(12rem, 20vw, 16rem);
+  background: #fff;
+  padding: 1.25rem;
+}
+.hero-offer-image .product-promotion {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+}
+.hero-offer-details {
+  padding: 1.25rem 1.5rem;
+  animation: offer-appear 250ms ease-out;
+}
+.hero-offer-details h2 {
+  margin: 0.5rem 0 0.8rem;
+  font-size: clamp(1.1rem, 2vw, 1.45rem);
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+.hero-offer-details .product-category {
+  margin: 0;
+}
+.hero-offer-details .price {
+  margin: 0.3rem 0;
+}
+.hero-offer-cta {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--line);
+  font-weight: 800;
+}
+.hero-offer-controls,
+.hero-offer-dots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+}
+.hero-offer-controls {
+  padding-top: 0.75rem;
+}
+.hero-offer-controls button {
+  display: grid;
+  place-items: center;
+  min-width: 44px;
+  min-height: 44px;
+  border: 1px solid #ffffff50;
+  border-radius: 50%;
+  background: #ffffff12;
+  color: #fff;
+  cursor: pointer;
+  transition: background 160ms ease;
+}
+.hero-offer-controls button:hover {
+  background: #ffffff30;
+}
+.hero-offer-dots button {
+  border: 0;
+  background: transparent;
+}
+.hero-offer-dots span {
+  width: 8px;
+  height: 8px;
+  border-radius: 10px;
+  background: #ffffff70;
+  transition: width 160ms ease;
+}
+.hero-offer-dots [aria-pressed='true'] span {
+  width: 24px;
+  background: #fff;
+}
+.hero-offers :focus-visible {
+  outline: 3px solid #ffbd69;
+  outline-offset: 3px;
+}
+.offers-section {
+  border-top: 0;
+  padding-block: clamp(1.5rem, 4vw, 3rem);
+}
+.offers-panel {
+  border: 1px solid var(--line);
+  border-radius: 1.5rem;
+  background: var(--surface);
+  padding: clamp(1rem, 3vw, 2rem);
+  box-shadow: 0 12px 35px #17247708;
+  border-top: 4px solid var(--red-600);
+}
+.offers-heading {
+  margin-bottom: 1.5rem;
+  gap: 1rem 2rem;
+}
+.offers-heading h2 {
+  margin: 0.35rem 0 0.65rem;
+  font-size: clamp(1.55rem, 3vw, 2.25rem);
+  letter-spacing: -0.035em;
+  line-height: 1.15;
+}
+.offers-heading p {
+  margin: 0;
+}
+.offers-heading > div > p:last-child {
+  color: var(--muted);
+  line-height: 1.6;
+}
+.offers-heading > a {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.7rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 0.8rem;
+  font-weight: 750;
+}
+.offers-panel .product-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+  gap: 1.25rem;
+}
+.offers-panel .catalog-card {
+  max-width: 22rem;
+  width: 100%;
+  min-width: 0;
+}
+.offers-panel .catalog-card-visual {
+  height: 14rem;
+  padding: 1rem;
+  background: #fff;
+}
+.offers-panel .product-footer {
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+@keyframes offer-appear {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (prefers-color-scheme: dark) {
+  .offers-panel .section-kicker,
+  .offers-panel .product-savings,
+  .hero-offer .product-savings {
+    color: #aebcff;
+  }
+}
+@media (max-width: 900px) {
+  .hero-offers {
+    margin: 2rem auto 0;
+  }
+}
+@media (max-width: 480px) {
+  .hero-offer-details {
+    padding: 1rem;
+  }
+  .hero-offer-image {
+    height: 13rem;
+  }
+  .offers-panel .catalog-card {
+    max-width: none;
+  }
+  .offers-heading > a {
+    width: 100%;
+    justify-content: center;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-offer-details {
+    animation: none;
+  }
+  .hero-offer-controls button,
+  .hero-offer-dots span {
+    transition: none;
+  }
+}
