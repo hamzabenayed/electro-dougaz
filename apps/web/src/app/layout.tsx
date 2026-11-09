@@ -8,6 +8,7 @@ import './cart-drawer.css';
 import './storefront-features.css';
 import './commerce-enhancements.css';
 import './promotion-showcase.css';
+import './storefront-hero.css';
 
 export const metadata: Metadata = {
   title: {

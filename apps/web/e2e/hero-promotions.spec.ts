@@ -13,6 +13,18 @@ for (const width of [320, 390, 768, 1440]) {
       await page.goto('/');
       const hero = page.getByRole('region', { name: 'Promotions à découvrir' });
       await expect(hero).toBeVisible();
+      await expect(page.locator('.hero-copy h1')).toContainText('À prix coup de cœur.');
+      await expect(hero.locator('.hero-offer-stock')).toContainText('Disponible');
+      expect(await hero.evaluate((element) => getComputedStyle(element).animationName)).toBe(
+        'none'
+      );
+      const imageBox = await hero.locator('.hero-offer-product').boundingBox();
+      expect(imageBox!.height).toBeGreaterThan(100);
+      if (width >= 1440) {
+        await expect(page.locator('.nav-offer-label')).toBeVisible();
+        const header = await page.locator('.header-main').boundingBox();
+        expect(header!.width).toBeLessThan(width);
+      }
       await expect(hero.locator('del')).toBeVisible();
       await expect(hero.locator('.product-promotion')).toHaveText('−20 %');
       await expect(hero.getByRole('button')).toHaveCount(0);

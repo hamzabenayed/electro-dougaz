@@ -134,7 +134,7 @@ export default async function HomePage() {
     count: 'Voir les produits'
   }));
   return (
-    <div className="site-shell">
+    <div className="site-shell storefront-home">
       <div className="announcement">
         <div className="container announcement-inner">
           <p>
@@ -196,26 +196,46 @@ export default async function HomePage() {
             <Link href="/categories/electromenager">Électroménager</Link>
             <Link href="/categories/gaming">Gaming</Link>
             <Link className="deals-link" href="/promotions">
-              <Icon name="spark" size={17} /> Bons plans
+              <Icon name="spark" size={17} /> Bons plans{' '}
+              <span className="nav-offer-label">Promotions</span>
             </Link>
           </div>
         </nav>
       </header>
       <main>
         <section className="hero-section">
+          <div className="hero-atmosphere" aria-hidden="true">
+            <span />
+            <span />
+            <span />
+          </div>
           <div className="container hero-grid">
             <div className="hero-copy">
               <span className="hero-kicker">
-                <Icon name="spark" size={17} /> La technologie, simplement
+                <Icon name="spark" size={17} />{' '}
+                {heroOffers.length
+                  ? 'Les belles découvertes commencent ici'
+                  : 'La technologie, simplement'}
               </span>
               <h1>
-                Trouvez. Comparez.
-                <br />
-                <em>Achetez sereinement.</em>
+                {heroOffers.length ? (
+                  <>
+                    Vos envies tech.
+                    <br />
+                    <em>À prix coup de cœur.</em>
+                  </>
+                ) : (
+                  <>
+                    Trouvez. Comparez.
+                    <br />
+                    <em>Achetez sereinement.</em>
+                  </>
+                )}
               </h1>
               <p>
-                Les meilleurs équipements électroniques, des prix clairs et une livraison rapide
-                partout en Tunisie.
+                {heroOffers.length
+                  ? 'Découvrez nos produits en promotion : de vraies économies, des prix transparents et une livraison partout en Tunisie.'
+                  : 'Les meilleurs équipements électroniques, des prix clairs et une livraison rapide partout en Tunisie.'}
               </p>
               <div className="hero-actions">
                 <Link className="primary-button" href={offers.length ? '#promotions' : '#produits'}>

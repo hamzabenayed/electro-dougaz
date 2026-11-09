@@ -557,6 +557,12 @@ live customer data or a physical printer.
 
 ## Storefront promotion showcase
 
+The homepage header and hero share a branded blue/red treatment, highlighted promotions navigation,
+layered decorative background, framed product spotlight and prominent savings/discount labels.
+Entrance and hover effects use CSS transforms/opacity, stop after entry (no perpetual decorative
+animation), and respect reduced-motion preferences. These styles are homepage-scoped so checkout
+and admin navigation remain unchanged; mobile layouts retain 44px interaction targets.
+
 The homepage hero samples up to three distinct, in-stock active promotions from the first
 100 eligible catalogue results on each page request. It displays one offer at a time,
 with its actual image, discount, previous price, current price, savings and product-option link.

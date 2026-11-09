@@ -54,7 +54,9 @@ export function HeroPromotions({ products }: { products: readonly CatalogProduct
       }}
     >
       <div className="hero-offers-heading">
-        <span>✦ La sélection en promotion</span>
+        <span>
+          <span className="offer-status-dot" aria-hidden="true" /> La sélection en promotion
+        </span>
         <span>
           {(active % products.length) + 1} / {products.length}
         </span>
@@ -64,11 +66,19 @@ export function HeroPromotions({ products }: { products: readonly CatalogProduct
         href={`/produits/${product.slug}?option=${encodeURIComponent(product.variantId ?? product.id)}`}
       >
         <div className="hero-offer-image">
-          <ProductImage slug={product.slug} name={product.name} imageId={product.imageId} eager />
+          <span className="hero-offer-watermark" aria-hidden="true">
+            BON PLAN
+          </span>
+          <div className="hero-offer-product" key={product.id}>
+            <ProductImage slug={product.slug} name={product.name} imageId={product.imageId} eager />
+          </div>
           <ProductPromotion price={product.price} oldPrice={product.oldPrice} />
+          <span className="hero-offer-stock">
+            <span aria-hidden="true">✓</span> Disponible
+          </span>
         </div>
         <div className="hero-offer-details" key={product.id}>
-          <span className="product-category">{product.category} · Disponible</span>
+          <span className="product-category">{product.category}</span>
           <h2>{product.name}</h2>
           <ProductPrice price={product.price} oldPrice={product.oldPrice} />
           <span className="hero-offer-cta">
