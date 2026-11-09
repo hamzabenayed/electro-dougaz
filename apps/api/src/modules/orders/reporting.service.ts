@@ -30,6 +30,7 @@ export function reportDates(from?: string, to?: string) {
     if (
       date &&
       (!/^\d{4}-\d{2}-\d{2}$/.test(date) ||
+        date.startsWith('0000-') ||
         Number.isNaN(Date.parse(date)) ||
         new Date(date).toISOString().slice(0, 10) !== date)
     )

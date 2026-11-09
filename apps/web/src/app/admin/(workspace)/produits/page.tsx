@@ -11,6 +11,7 @@ import { getAdminToken } from '../../../../lib/admin-session';
 
 export default function ProductsPage() {
   const [query, setQuery] = useState('');
+  const [stock, setStock] = useState('all');
   const [offset, setOffset] = useState(0);
   const [products, setProducts] = useState<ApiProduct[]>([]);
   const [loading, setLoading] = useState(true);
@@ -28,7 +29,7 @@ export default function ProductsPage() {
     setError('');
     const timer = setTimeout(() => {
       void apiRequest<ApiProduct[]>(
-        `/admin/products?limit=30&offset=${offset}&q=${encodeURIComponent(query)}`,
+        `/admin/products?limit=30&offset=${offset}&q=${encodeURIComponent(query)}&stock=${stock}`,
         { headers: { Authorization: `Bearer ${token}` } }
       )
         .then((data) => {
@@ -45,7 +46,7 @@ export default function ProductsPage() {
       active = false;
       clearTimeout(timer);
     };
-  }, [query, offset]);
+  }, [query, offset, stock]);
 
   const visibleProducts = products;
 
@@ -70,6 +71,21 @@ export default function ProductsPage() {
             type="search"
             placeholder="Nom ou catégorie"
           />
+        </label>
+        <label>
+          Disponibilité du stock
+          <select
+            value={stock}
+            onChange={(event) => {
+              setStock(event.target.value);
+              setOffset(0);
+            }}
+          >
+            <option value="all">Tous les produits</option>
+            <option value="available">Disponibles</option>
+            <option value="out_of_stock">En rupture — aucune option disponible</option>
+            <option value="low">À réapprovisionner — au moins une option</option>
+          </select>
         </label>
       </section>
       {error ? (
@@ -101,47 +117,60 @@ export default function ProductsPage() {
                 </tr>
               </thead>
               <tbody>
-                {visibleProducts.map((product) => (
-                  <tr key={product.id}>
-                    <td data-label="Produit">
-                      <div className="admin-product-cell">
-                        <span className="admin-product-thumb">
-                          {product.images?.[0] ? <AdminSavedImage id={product.images[0].id} alt={product.name} /> : <ProductImage slug={product.slug} name={product.name} />}
-                        </span>
-                        <strong>{product.name}</strong>
-                      </div>
-                    </td>
-                    <td data-label="Catégorie">{product.category.name}</td>
-                    <td data-label="Prix">
-                      <strong>{formatMillimes(product.variant.priceMillimes)} DT</strong>
-                    </td>
-                    <td data-label="Stock">
-                      <StatusBadge
-                        tone={
-                          product.variant.stockQuantity <= product.variant.lowStockThreshold
-                            ? 'danger'
-                            : 'success'
-                        }
-                      >
-                        {product.variant.stockQuantity} unités
-                      </StatusBadge>
-                    </td>
-                    <td data-label="Visibilité">
-                      <StatusBadge tone={product.status === 'published' ? 'success' : 'neutral'}>
-                        {product.status === 'published' ? 'Publié' : 'Brouillon'}
-                      </StatusBadge>
-                    </td>
-                    <td>
-                      <Link
-                        className="row-action"
-                        href={`/admin/produits/${product.id}`}
-                        aria-label={`Modifier ${product.name}`}
-                      >
-                        <AdminIcon name="arrow" />
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
+                {visibleProducts.map((product) => {
+                  const variants = product.variants?.length ? product.variants : [product.variant];
+                  const stockTotal = variants.reduce(
+                    (total, variant) => total + variant.stockQuantity,
+                    0
+                  );
+                  const low = variants.some(
+                    (variant) => variant.stockQuantity <= variant.lowStockThreshold
+                  );
+                  return (
+                    <tr key={product.id}>
+                      <td data-label="Produit">
+                        <div className="admin-product-cell">
+                          <span className="admin-product-thumb">
+                            {product.images?.[0] ? (
+                              <AdminSavedImage id={product.images[0].id} alt={product.name} />
+                            ) : (
+                              <ProductImage slug={product.slug} name={product.name} />
+                            )}
+                          </span>
+                          <strong>{product.name}</strong>
+                        </div>
+                      </td>
+                      <td data-label="Catégorie">{product.category.name}</td>
+                      <td data-label="Prix">
+                        <strong>{formatMillimes(product.variant.priceMillimes)} DT</strong>
+                      </td>
+                      <td data-label="Stock">
+                        <StatusBadge
+                          tone={stockTotal === 0 ? 'danger' : low ? 'warning' : 'success'}
+                        >
+                          {stockTotal === 0 ? 'En rupture' : `${stockTotal} unités`}
+                        </StatusBadge>
+                        {variants.length > 1 && (
+                          <small>{variants.length} options · total disponible</small>
+                        )}
+                      </td>
+                      <td data-label="Visibilité">
+                        <StatusBadge tone={product.status === 'published' ? 'success' : 'neutral'}>
+                          {product.status === 'published' ? 'Publié' : 'Brouillon'}
+                        </StatusBadge>
+                      </td>
+                      <td>
+                        <Link
+                          className="row-action"
+                          href={`/admin/produits/${product.id}`}
+                          aria-label={`Modifier ${product.name}`}
+                        >
+                          <AdminIcon name="arrow" />
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

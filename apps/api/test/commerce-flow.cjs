@@ -11,8 +11,10 @@ const { ValidationPipe, VersioningType } = require('@nestjs/common');
 const { FastifyAdapter } = require('@nestjs/platform-fastify');
 
 async function main() {
-  const env = parse(readFileSync(path.resolve(__dirname, '../../../.env')));
-  const url = new URL(env.DATABASE_URL);
+  const databaseUrl =
+    process.env.TEST_DATABASE_URL ||
+    parse(readFileSync(path.resolve(__dirname, '../../../.env'))).DATABASE_URL;
+  const url = new URL(databaseUrl);
   assert(
     ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname),
     'Integration tests require local PostgreSQL'
@@ -23,7 +25,7 @@ async function main() {
   process.env.MEDIA_DRIVER = 'local';
   process.env.CLOUDINARY_URL = '';
   assert(/^commerce_test_[a-f0-9]{32}$/.test(schema));
-  const pool = new Pool({ connectionString: env.DATABASE_URL });
+  const pool = new Pool({ connectionString: databaseUrl });
   let app;
   let schemaCreated = false;
   try {
@@ -767,6 +769,232 @@ async function main() {
           )
         ).statusCode,
         400
+      );
+      // Category visibility must protect every public entry point, without destroying products.
+      const managedCategory = body(
+        await call(
+          'POST',
+          '/admin/categories',
+          { name: 'Managed category', slug: 'managed-category' },
+          token
+        ),
+        201
+      );
+      const managedInput = {
+        ...productInput,
+        categoryId: managedCategory.id,
+        name: 'Managed phone',
+        slug: 'managed-phone',
+        sku: 'MANAGED-001',
+        stockQuantity: 0,
+        additionalVariants: [
+          { name: 'Blue', sku: 'MANAGED-BLUE', priceMillimes: 900000, stockQuantity: 2 }
+        ]
+      };
+      const managed = body(await call('POST', '/admin/products', managedInput, token), 201);
+      assert(
+        !body(await call('GET', '/admin/products?stock=out_of_stock', null, token)).some(
+          (p) => p.id === managed.id
+        )
+      );
+      assert(
+        body(await call('GET', '/admin/products?stock=available&q=MANAGED-BLUE', null, token)).some(
+          (p) => p.id === managed.id
+        )
+      );
+      assert.equal(
+        (
+          await call(
+            'PATCH',
+            `/admin/categories/${managedCategory.id}`,
+            { isVisible: false },
+            staffToken
+          )
+        ).statusCode,
+        403
+      );
+      assert.equal(
+        (await call('DELETE', `/admin/categories/${managedCategory.id}`, null, staffToken))
+          .statusCode,
+        403
+      );
+      assert.equal(
+        (await call('DELETE', `/admin/categories/${managedCategory.id}`, null, token)).statusCode,
+        409
+      );
+      body(
+        await call('PATCH', `/admin/categories/${managedCategory.id}`, { isVisible: false }, token)
+      );
+      assert(!body(await call('GET', '/categories')).some((c) => c.id === managedCategory.id));
+      assert(
+        body(await call('GET', '/admin/categories', null, token)).some(
+          (c) => c.id === managedCategory.id && c.productCount === 1 && !c.isVisible
+        )
+      );
+      assert.equal((await call('GET', '/products/managed-phone')).statusCode, 404);
+      assert(body(await call('GET', `/admin/products/${managed.id}`, null, token)));
+      assert.equal(
+        (
+          await call('POST', '/orders/quote', {
+            items: [
+              {
+                variantId: managed.variantIds.find((v) => v.sku === 'MANAGED-BLUE').id,
+                quantity: 1
+              }
+            ]
+          })
+        ).statusCode,
+        409
+      );
+      body(
+        await call('PATCH', `/admin/categories/${managedCategory.id}`, { isVisible: true }, token)
+      );
+      assert.equal((await call('GET', '/products/managed-phone')).statusCode, 200);
+      const emptyCategory = body(
+        await call(
+          'POST',
+          '/admin/categories',
+          { name: 'Empty category', slug: 'empty-category' },
+          token
+        ),
+        201
+      );
+      body(await call('DELETE', `/admin/categories/${emptyCategory.id}`, null, token));
+      assert(
+        !body(await call('GET', '/admin/categories', null, token)).some(
+          (c) => c.id === emptyCategory.id
+        )
+      );
+
+      const primary = managed.variantIds.find((v) => v.sku === 'MANAGED-001');
+      const stockChange = {
+        variantId: primary.id,
+        quantity: 5,
+        note: 'Supplier delivery BL-124',
+        requestKey: randomUUID()
+      };
+      const stockRetries = await Promise.all([
+        call('PATCH', '/admin/inventory/adjust', stockChange, token),
+        call('PATCH', '/admin/inventory/adjust', stockChange, token)
+      ]);
+      stockRetries.forEach((response) => assert.equal(body(response).stockQuantity, 5));
+      assert.equal(
+        (await call('PATCH', '/admin/inventory/adjust', { ...stockChange, quantity: 6 }, token))
+          .statusCode,
+        409
+      );
+      let movements = body(
+        await call('GET', '/admin/inventory/history?q=MANAGED-001&direction=add', null, token)
+      );
+      assert.equal(movements.length, 1);
+      assert.equal(movements[0].stockBefore, 0);
+      assert.equal(movements[0].stockAfter, 5);
+      assert.equal(movements[0].note, stockChange.note);
+      assert.equal(movements[0].actor, 'flow@example.test');
+      assert.equal((await call('GET', '/admin/inventory/history')).statusCode, 401);
+      assert.equal(
+        (await call('GET', '/admin/inventory/history?from=2026-02-30', null, token)).statusCode,
+        400
+      );
+      body(
+        await call(
+          'PUT',
+          `/admin/products/${managed.id}`,
+          { ...managedInput, stockQuantity: 0, additionalVariants: [] },
+          token
+        )
+      );
+      movements = body(
+        await call('GET', '/admin/inventory/history?q=MANAGED-001&direction=remove', null, token)
+      );
+      assert.equal(movements[0].reason, 'product_edit');
+      assert.equal(movements[0].stockBefore, 5);
+      assert.equal(movements[0].stockAfter, 0);
+      assert(
+        body(await call('GET', '/admin/products?stock=out_of_stock', null, token)).some(
+          (p) => p.id === managed.id
+        )
+      );
+      assert(
+        !body(await call('GET', '/admin/products?stock=available', null, token)).some(
+          (p) => p.id === managed.id
+        )
+      );
+
+      // Bulk docs are authenticated, bounded, inclusive in Tunis time, and contain saved order lines.
+      assert.equal(
+        (await call('POST', '/admin/orders/delivery-notes', { mode: 'selection', ids: [order.id] }))
+          .statusCode,
+        401
+      );
+      const notesResponse = await call(
+        'POST',
+        '/admin/orders/delivery-notes',
+        { mode: 'selection', ids: [order.id, scheduledOrder.id] },
+        token
+      );
+      const notes = body(notesResponse, 201);
+      assert.equal(notes.length, 2);
+      assert.equal(notesResponse.headers['cache-control'], 'private, no-store');
+      assert.equal(notes.find((n) => n.id === order.id).items[0].quantity, 2);
+      assert.equal(notes.find((n) => n.id === order.id).customer.phone, checkout.phone);
+      assert.equal(
+        (
+          await call(
+            'POST',
+            '/admin/orders/delivery-notes',
+            { mode: 'selection', ids: [order.id, order.id] },
+            token
+          )
+        ).statusCode,
+        400
+      );
+      assert.equal(
+        (
+          await call(
+            'POST',
+            '/admin/orders/delivery-notes',
+            { mode: 'selection', ids: [randomUUID()] },
+            token
+          )
+        ).statusCode,
+        404
+      );
+      await isolated.query("UPDATE orders SET created_at='2026-11-08T23:00:00Z' WHERE id=$1", [
+        order.id
+      ]);
+      await isolated.query("UPDATE orders SET created_at='2026-11-09T23:00:00Z' WHERE id=$1", [
+        scheduledOrder.id
+      ]);
+      const dated = body(
+        await call(
+          'POST',
+          '/admin/orders/delivery-notes',
+          { mode: 'dates', from: '2026-11-09', to: '2026-11-09' },
+          token
+        ),
+        201
+      );
+      assert(dated.some((n) => n.id === order.id));
+      assert(!dated.some((n) => n.id === scheduledOrder.id));
+      const filteredOrders = body(
+        await call('GET', '/admin/orders?from=2026-11-09&to=2026-11-09', null, token)
+      );
+      assert(filteredOrders.some((n) => n.id === order.id));
+      assert(!filteredOrders.some((n) => n.id === scheduledOrder.id));
+      assert.equal(
+        (
+          await call(
+            'POST',
+            '/admin/orders/delivery-notes',
+            { mode: 'dates', from: '2026-11-10', to: '2026-11-09' },
+            token
+          )
+        ).statusCode,
+        400
+      );
+      console.log(
+        'PASS: category hide/restore/safe deletion, variant-aware stock filters, idempotent stock additions and before/after history, product-edit ledger, authenticated bulk delivery notes and Tunis date boundaries.'
       );
       assert.equal((await call('POST', '/admin/auth/logout', null, token)).statusCode, 204);
       assert.equal((await call('GET', '/admin/products', null, token)).statusCode, 401);

@@ -4,6 +4,7 @@ import { adminRequest } from '../lib/admin-api';
 import { formText } from '../lib/form-text';
 import { formatMillimes } from '../lib/api';
 import { orderLabels, type ApiOrder } from '../lib/orders';
+import { OrderDocument } from './order-document';
 type Entry = {
   id: string;
   kind: string;
@@ -26,6 +27,7 @@ export function AdminOrderFinance({ order }: { order: ApiOrder }) {
   const attempt = useRef<{ fingerprint: string; key: string } | undefined>(undefined);
   const pending = useRef(false);
   const [document, setDocument] = useState('summary');
+  const [logoReady, setLogoReady] = useState(false);
   useEffect(() => {
     let active = true;
     setLoaded(false);
@@ -171,7 +173,11 @@ export function AdminOrderFinance({ order }: { order: ApiOrder }) {
               <option value="delivery">Bon de livraison</option>
             </select>
           </label>
-          <button className="admin-primary-button" onClick={() => window.print()}>
+          <button
+            className="admin-primary-button"
+            disabled={!loaded || !logoReady || busy}
+            onClick={() => window.print()}
+          >
             Imprimer / Enregistrer en PDF
           </button>
         </div>
@@ -179,55 +185,17 @@ export function AdminOrderFinance({ order }: { order: ApiOrder }) {
           Choisissez « Enregistrer au format PDF » dans la fenêtre d’impression. Ce document n’est
           pas une facture fiscale.
         </p>
-        <article className="print-document">
-          <h2>
-            Electro Dougaz —{' '}
-            {document === 'delivery' ? 'Bon de livraison' : 'Récapitulatif de commande'}
-          </h2>
-          <p>
-            {order.reference} ·{' '}
-            {new Date(order.createdAt).toLocaleDateString('fr-TN', { timeZone: 'Africa/Tunis' })}
-          </p>
-          <p>
-            {order.customer.firstName} {order.customer.lastName}
-            <br />
-            {order.customer.phone}
-            <br />
-            {order.customer.address}, {order.customer.governorate}
-          </p>
-          <table>
-            <thead>
-              <tr>
-                <th>Article</th>
-                <th>Quantité</th>
-                {document === 'summary' && <th>Total</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {order.items?.map((i) => (
-                <tr key={i.id}>
-                  <td>{i.productName}</td>
-                  <td>{i.quantity}</td>
-                  {document === 'summary' && <td>{formatMillimes(i.lineTotalMillimes)} DT</td>}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <p>
-            Livraison : {formatMillimes(order.deliveryMillimes)} DT · Total de la commande :{' '}
-            {formatMillimes(order.totalMillimes)} DT
-          </p>
-          <p>
-            Déjà collecté : {formatMillimes(sum('collected'))} DT · Reste à collecter :{' '}
-            {formatMillimes(Math.max(0, order.totalMillimes - sum('collected')))} DT
-          </p>
-          {document === 'delivery' && (
-            <p>Réceptionné le : __________________ Signature : __________________</p>
-          )}
-          <small>
-            Document de suivi — ne constitue pas une facture fiscale ni une preuve de paiement.
-          </small>
-        </article>
+        {loaded ? (
+          <OrderDocument
+            order={order}
+            kind={document === 'delivery' ? 'delivery' : 'summary'}
+            collected={sum('collected')}
+            refunded={sum('refunded')}
+            onLogoReady={() => setLogoReady(true)}
+          />
+        ) : (
+          <p>Chargement des montants du document…</p>
+        )}
       </section>
     </>
   );

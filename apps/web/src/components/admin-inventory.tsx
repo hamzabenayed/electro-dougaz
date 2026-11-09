@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { adminRequest } from '../lib/admin-api';
 import type { InventoryRow } from './admin-overview';
 import { AdminIcon } from './admin-icon';
+import { AdminStockHistory } from './admin-stock-history';
 import { AdminLoading, AdminPageHeader, StatusBadge } from './admin-ui';
 
 const reasons = {
@@ -36,6 +37,8 @@ export function AdminInventory() {
   const [reload, setReload] = useState(0);
   const productSelect = useRef<HTMLSelectElement>(null);
   const submitting = useRef(false);
+  const attempt = useRef<{ fingerprint: string; key: string } | undefined>(undefined);
+  const [historyRevision, setHistoryRevision] = useState(0);
   useEffect(() => {
     let active = true;
     setLoading(true);
@@ -81,16 +84,20 @@ export function AdminInventory() {
     setBusy(true);
     setError('');
     setMessage('');
+    const body = {
+      variantId,
+      quantity: delta,
+      note: reason + (details.trim() ? ` — ${details.trim()}` : '')
+    };
+    const fingerprint = JSON.stringify(body);
+    if (attempt.current?.fingerprint !== fingerprint)
+      attempt.current = { fingerprint, key: crypto.randomUUID() };
     try {
       const result = await adminRequest<{ variantId: string; stockQuantity: number }>(
         '/admin/inventory/adjust',
         {
           method: 'PATCH',
-          body: JSON.stringify({
-            variantId,
-            quantity: delta,
-            note: reason + (details.trim() ? ` — ${details.trim()}` : '')
-          })
+          body: JSON.stringify({ ...body, requestKey: attempt.current.key })
         }
       );
       setItems((current) =>
@@ -110,6 +117,8 @@ export function AdminInventory() {
       setQuantity('');
       setReason('');
       setDetails('');
+      attempt.current = undefined;
+      setHistoryRevision((value) => value + 1);
     } catch (cause) {
       setError(
         cause instanceof Error
@@ -423,6 +432,7 @@ export function AdminInventory() {
           )}
         </>
       )}
+      <AdminStockHistory revision={historyRevision + reload} />
     </>
   );
 }

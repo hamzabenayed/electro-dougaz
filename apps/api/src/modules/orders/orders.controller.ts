@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Headers,
+  Header,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -14,6 +15,7 @@ import {
 import { AuthGuard, type AuthenticatedRequest } from '../auth/auth.guard.js';
 import {
   CreateOrderDto,
+  DeliveryNotesDto,
   OrderQueryDto,
   TrackOrderDto,
   UpdateOrderStatusDto,
@@ -65,6 +67,12 @@ export class OrdersController {
   }
   @Get('admin/orders') @UseGuards(AuthGuard) list(@Query() query: OrderQueryDto) {
     return this.orders.list(query);
+  }
+  @Post('admin/orders/delivery-notes')
+  @UseGuards(AuthGuard)
+  @Header('Cache-Control', 'private, no-store')
+  deliveryNotes(@Body() body: DeliveryNotesDto) {
+    return this.orders.deliveryNotes(body);
   }
   @Get('admin/orders/:id') @UseGuards(AuthGuard) detail(@Param('id', ParseUUIDPipe) id: string) {
     return this.orders.detail(id);

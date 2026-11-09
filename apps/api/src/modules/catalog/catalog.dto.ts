@@ -32,6 +32,12 @@ export class ProductSpecificationDto {
   @IsString() @MinLength(1) @MaxLength(80) label!: string;
   @IsString() @MinLength(1) @MaxLength(300) value!: string;
 }
+export class AdminCatalogQueryDto extends CatalogQueryDto {
+  @IsOptional() @IsIn(['all', 'available', 'out_of_stock', 'low']) stock = 'all';
+}
+export class CategoryVisibilityDto {
+  @IsBoolean() isVisible!: boolean;
+}
 export class ProductVariantDto {
   @IsOptional() @IsUUID() id?: string;
   @IsString() @MinLength(1) @MaxLength(100) name!: string;

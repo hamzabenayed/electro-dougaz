@@ -8,6 +8,7 @@ import { DatabaseService } from '../../database/database.service.js';
 import type { PoolClient } from 'pg';
 import type {
   CatalogQueryDto,
+  AdminCatalogQueryDto,
   CreateCategoryDto,
   CreateProductDto,
   UpdateProductDto
@@ -171,7 +172,9 @@ export class CatalogService {
   }
   async categories(includeHidden = false) {
     const result = await this.database.query(
-      'SELECT id, name, slug, description, is_visible AS "isVisible", sort_order AS "sortOrder" FROM categories WHERE ($1::boolean OR is_visible = true) ORDER BY sort_order, name',
+      `SELECT id, name, slug, description, is_visible AS "isVisible", sort_order AS "sortOrder",
+       CASE WHEN $1::boolean THEN (SELECT count(*)::int FROM products p WHERE p.category_id=categories.id) END AS "productCount"
+       FROM categories WHERE ($1::boolean OR is_visible = true) ORDER BY sort_order, name`,
       [includeHidden]
     );
     return result.rows;
@@ -189,6 +192,43 @@ export class CatalogService {
         throw new ConflictException('Ce slug de catégorie existe déjà');
       throw error;
     }
+  }
+  async categoryVisibility(id: string, isVisible: boolean, actor: string) {
+    return this.database.transaction(async (client) => {
+      const result = await client.query(
+        'UPDATE categories SET is_visible=$2 WHERE id=$1 RETURNING id',
+        [id, isVisible]
+      );
+      if (!result.rowCount) throw new NotFoundException('Catégorie introuvable');
+      await client.query(
+        `INSERT INTO audit_logs(actor_user_id,action,entity_type,entity_id,metadata) VALUES($1,'category.visibility_updated','category',$2,$3)`,
+        [actor, id, JSON.stringify({ isVisible })]
+      );
+      return { id, isVisible };
+    });
+  }
+  async deleteCategory(id: string, actor: string) {
+    return this.database.transaction(async (client) => {
+      const category = (
+        await client.query<{ name: string }>('SELECT name FROM categories WHERE id=$1 FOR UPDATE', [
+          id
+        ])
+      ).rows[0];
+      if (!category) throw new NotFoundException('Catégorie introuvable');
+      if (
+        (await client.query('SELECT id FROM products WHERE category_id=$1 LIMIT 1', [id])).rows
+          .length
+      )
+        throw new ConflictException(
+          'Cette catégorie contient des produits. Masquez-la ou déplacez ses produits avant de la supprimer.'
+        );
+      await client.query('DELETE FROM categories WHERE id=$1', [id]);
+      await client.query(
+        `INSERT INTO audit_logs(actor_user_id,action,entity_type,entity_id,metadata) VALUES($1,'category.deleted','category',$2,$3)`,
+        [actor, id, JSON.stringify({ name: category.name })]
+      );
+      return { id };
+    });
   }
   async publicProducts(query: CatalogQueryDto) {
     if (
@@ -231,11 +271,16 @@ export class CatalogService {
     );
     return result.rows.map(mapProduct);
   }
-  async adminProducts(query: CatalogQueryDto) {
+  async adminProducts(query: AdminCatalogQueryDto) {
     const search = query.q?.trim() || null;
     const result = await this.database.query<ProductRow>(
-      `${productSelect} WHERE ($1::text IS NULL OR p.name ILIKE '%' || $1 || '%' OR v.sku ILIKE '%' || $1 || '%') ORDER BY p.updated_at DESC LIMIT $2 OFFSET $3`,
-      [search, query.limit, query.offset]
+      `${productSelect} WHERE ($1::text IS NULL OR p.name ILIKE '%' || $1 || '%' OR c.name ILIKE '%' || $1 || '%' OR EXISTS(SELECT 1 FROM product_variants s WHERE s.product_id=p.id AND s.is_active AND s.sku ILIKE '%' || $1 || '%'))
+       AND ($4='all'
+         OR ($4='available' AND EXISTS(SELECT 1 FROM product_variants s WHERE s.product_id=p.id AND s.is_active AND s.stock_quantity>0))
+         OR ($4='out_of_stock' AND NOT EXISTS(SELECT 1 FROM product_variants s WHERE s.product_id=p.id AND s.is_active AND s.stock_quantity>0))
+         OR ($4='low' AND EXISTS(SELECT 1 FROM product_variants s WHERE s.product_id=p.id AND s.is_active AND s.stock_quantity<=s.low_stock_threshold)))
+       ORDER BY p.updated_at DESC,p.id LIMIT $2 OFFSET $3`,
+      [search, query.limit, query.offset, query.stock ?? 'all']
     );
     return result.rows.map(mapProduct);
   }
@@ -288,6 +333,7 @@ export class CatalogService {
           [actorId, product.id]
         );
         await this.saveDetails(client, product.id, input);
+        await this.recordStockChanges(client, product.id, [], actorId);
         const variants = await client.query<{ id: string; sku: string }>(
           'SELECT id,sku FROM product_variants WHERE product_id=$1 AND is_active=true',
           [product.id]
@@ -334,8 +380,8 @@ export class CatalogService {
       const found = await this.database.transaction(async (client) => {
         await client.query('SELECT id FROM products WHERE id=$1 FOR UPDATE', [id]);
         const before = (
-          await client.query(
-            'SELECT id,sku,price_millimes,compare_at_price_millimes,stock_quantity,is_active FROM product_variants WHERE product_id=$1 ORDER BY id',
+          await client.query<{ id: string; stock_quantity: number }>(
+            'SELECT id,sku,price_millimes,compare_at_price_millimes,stock_quantity,is_active FROM product_variants WHERE product_id=$1 ORDER BY id FOR UPDATE',
             [id]
           )
         ).rows;
@@ -364,6 +410,7 @@ export class CatalogService {
           ]
         );
         await this.saveDetails(client, id, input);
+        await this.recordStockChanges(client, id, before, actorId);
         await client.query(
           `INSERT INTO audit_logs(actor_user_id,action,entity_type,entity_id,metadata) VALUES ($1,'product.updated','product',$2,$3)`,
           [
@@ -390,6 +437,36 @@ export class CatalogService {
       return { id, variantIds: variants.rows };
     } catch (error) {
       this.databaseError(error);
+    }
+  }
+  private async recordStockChanges(
+    client: PoolClient,
+    productId: string,
+    before: Array<{ id: string; stock_quantity: number }>,
+    actor: string
+  ) {
+    const after = (
+      await client.query<{ id: string; stock_quantity: number }>(
+        'SELECT id,stock_quantity FROM product_variants WHERE product_id=$1',
+        [productId]
+      )
+    ).rows;
+    for (const variant of after) {
+      const previous = before.find((row) => row.id === variant.id);
+      const delta = variant.stock_quantity - (previous?.stock_quantity ?? 0);
+      if (delta !== 0)
+        await client.query(
+          'INSERT INTO stock_movements(variant_id,quantity_delta,reason,note,actor_user_id) VALUES($1,$2,$3,$4,$5)',
+          [
+            variant.id,
+            delta,
+            previous ? 'product_edit' : 'initial_stock',
+            previous
+              ? 'Quantité modifiée dans la fiche produit'
+              : 'Stock initial à la création de l’option',
+            actor
+          ]
+        );
     }
   }
   private async saveDetails(client: PoolClient, id: string, input: CreateProductDto) {

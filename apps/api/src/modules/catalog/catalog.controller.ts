@@ -6,6 +6,7 @@ import {
   ParseUUIDPipe,
   Post,
   Put,
+  Patch,
   Query,
   Req,
   UseGuards,
@@ -16,6 +17,8 @@ import { AuthGuard, type AuthenticatedRequest } from '../auth/auth.guard.js';
 import { requireManager } from '../auth/authorization.js';
 import {
   CatalogQueryDto,
+  AdminCatalogQueryDto,
+  CategoryVisibilityDto,
   CreateCategoryDto,
   CreateProductDto,
   UpdateProductDto,
@@ -123,7 +126,22 @@ export class CatalogController {
     requireManager(request.admin);
     return this.catalog.createCategory(body);
   }
-  @Get('admin/products') @UseGuards(AuthGuard) adminProducts(@Query() query: CatalogQueryDto) {
+  @Patch('admin/categories/:id') @UseGuards(AuthGuard) categoryVisibility(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: CategoryVisibilityDto,
+    @Req() request: AuthenticatedRequest
+  ) {
+    requireManager(request.admin);
+    return this.catalog.categoryVisibility(id, body.isVisible, request.admin.id);
+  }
+  @Delete('admin/categories/:id') @UseGuards(AuthGuard) deleteCategory(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() request: AuthenticatedRequest
+  ) {
+    requireManager(request.admin);
+    return this.catalog.deleteCategory(id, request.admin.id);
+  }
+  @Get('admin/products') @UseGuards(AuthGuard) adminProducts(@Query() query: AdminCatalogQueryDto) {
     return this.catalog.adminProducts(query);
   }
   @Get('admin/products/:id') @UseGuards(AuthGuard) adminProduct(

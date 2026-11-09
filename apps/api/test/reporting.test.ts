@@ -16,6 +16,7 @@ describe('payment ledger safeguards', () => {
   });
   it('validates date bounds and real calendar dates', () => {
     expect(() => reportDates('2026-02-30')).toThrow();
+    expect(() => reportDates('0000-01-01')).toThrow();
     expect(() => reportDates('2026-10-23', '2026-10-22')).toThrow();
     expect(() => reportDates('2026-10-22', '2026-10-22')).not.toThrow();
   });

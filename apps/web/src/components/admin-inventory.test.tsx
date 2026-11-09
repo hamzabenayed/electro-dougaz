@@ -17,11 +17,15 @@ beforeEach(() => {
   sessionStorage.setItem('electro-dougaz-admin-token', 'test');
   vi.stubGlobal(
     'fetch',
-    vi.fn((_url: string, init?: RequestInit) =>
+    vi.fn((url: string, init?: RequestInit) =>
       Promise.resolve(
         new Response(
           JSON.stringify(
-            init?.method === 'PATCH' ? { variantId: 'variant', stockQuantity: 7 } : items
+            init?.method === 'PATCH'
+              ? { variantId: 'variant', stockQuantity: 7 }
+              : url.includes('/history')
+                ? []
+                : items
           )
         )
       )
@@ -50,12 +54,14 @@ describe('Guided stock adjustments', () => {
     await screen.findByText(/Stock disponible : 7/);
     const request = vi.mocked(fetch).mock.calls.find(([, init]) => init?.method === 'PATCH')?.[1];
     if (typeof request?.body !== 'string') throw new Error('Expected JSON body');
-    expect(JSON.parse(request.body)).toEqual({
+    expect(JSON.parse(request.body)).toMatchObject({
       variantId: 'variant',
       quantity: 3,
       note: 'Livraison fournisseur reçue'
     });
-    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(fetch).mock.calls.filter(([, init]) => init?.method === 'PATCH')).toHaveLength(
+      1
+    );
     expect(screen.getByLabelText<HTMLInputElement>(/Nombre d’unités/).value).toBe('');
   });
   it('sends a negative delta for removal without asking the user to enter a minus sign', async () => {
@@ -67,7 +73,9 @@ describe('Guided stock adjustments', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Enregistrer le changement' }));
     await screen.findByText(/retirée/);
-    const body = vi.mocked(fetch).mock.calls[1]?.[1]?.body;
+    const body = vi
+      .mocked(fetch)
+      .mock.calls.find(([, init]) => init?.method === 'PATCH')?.[1]?.body;
     if (typeof body !== 'string') throw new Error('Expected JSON body');
     expect(JSON.parse(body)).toMatchObject({ quantity: -2 });
   });
@@ -110,5 +118,10 @@ describe('Guided stock adjustments', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Enregistrer le changement' }));
     expect((await screen.findByRole('alert')).textContent).toContain('Stock indisponible');
     expect(screen.getByLabelText<HTMLInputElement>(/Nombre d’unités/).value).toBe('3');
+    fireEvent.click(screen.getByRole('button', { name: 'Enregistrer le changement' }));
+    await screen.findByText(/Stock disponible : 7/);
+    const attempts = vi.mocked(fetch).mock.calls.filter(([, init]) => init?.method === 'PATCH');
+    expect(attempts).toHaveLength(2);
+    expect(attempts[0]?.[1]?.body).toBe(attempts[1]?.[1]?.body);
   });
 });

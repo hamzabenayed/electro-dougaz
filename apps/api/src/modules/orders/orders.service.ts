@@ -9,7 +9,14 @@ import {
 import { SettingsService } from '../settings/settings.service.js';
 import { normalizePhone } from './phone.js';
 import { DatabaseService } from '../../database/database.service.js';
-import type { CreateOrderDto, OrderQueryDto, TrackOrderDto, QuoteOrderDto } from './orders.dto.js';
+import type {
+  CreateOrderDto,
+  OrderQueryDto,
+  TrackOrderDto,
+  QuoteOrderDto,
+  DeliveryNotesDto
+} from './orders.dto.js';
+import { reportDates } from './reporting.service.js';
 
 interface VariantRow {
   id: string;
@@ -271,13 +278,58 @@ export class OrdersService {
     };
   }
   async list(query: OrderQueryDto) {
+    reportDates(query.from, query.to);
     const search = query.q?.trim() || null,
       status = query.status?.trim() || null;
     const result = await this.database.query<OrderRow>(
-      `SELECT * FROM orders WHERE ($1::text IS NULL OR reference ILIKE '%'||$1||'%' OR customer_first_name ILIKE '%'||$1||'%' OR customer_last_name ILIKE '%'||$1||'%' OR phone ILIKE '%'||$1||'%') AND ($2::text IS NULL OR status=$2) ORDER BY created_at DESC LIMIT $3 OFFSET $4`,
-      [search, status, query.limit, query.offset]
+      `SELECT * FROM orders WHERE ($1::text IS NULL OR reference ILIKE '%'||$1||'%' OR customer_first_name ILIKE '%'||$1||'%' OR customer_last_name ILIKE '%'||$1||'%' OR phone ILIKE '%'||$1||'%') AND ($2::text IS NULL OR status=$2)
+       AND ($5::date IS NULL OR created_at >= ($5::date::timestamp AT TIME ZONE 'Africa/Tunis'))
+       AND ($6::date IS NULL OR created_at < (($6::date+1)::timestamp AT TIME ZONE 'Africa/Tunis'))
+       ORDER BY created_at DESC,id LIMIT $3 OFFSET $4`,
+      [search, status, query.limit, query.offset, query.from ?? null, query.to ?? null]
     );
     return result.rows.map(mapOrder);
+  }
+  async deliveryNotes(input: DeliveryNotesDto) {
+    if (input.mode === 'selection') {
+      if (
+        !input.ids?.length ||
+        input.ids.length > 50 ||
+        new Set(input.ids).size !== input.ids.length ||
+        input.from ||
+        input.to ||
+        input.status
+      )
+        throw new BadRequestException('Sélectionnez entre 1 et 50 commandes distinctes');
+    } else if (input.mode !== 'dates' || !input.from || !input.to || input.ids) {
+      throw new BadRequestException('Choisissez une date de début et de fin');
+    }
+    reportDates(input.from, input.to);
+    const result = await this.database.query<
+      OrderRow & { items: unknown[]; collected: string; refunded: string }
+    >(
+      `SELECT o.*,
+        COALESCE((SELECT jsonb_agg(jsonb_build_object('id',i.id,'productName',i.product_name,'sku',i.sku,'quantity',i.quantity,'unitPriceMillimes',i.unit_price_millimes,'lineTotalMillimes',i.line_total_millimes) ORDER BY i.id) FROM order_items i WHERE i.order_id=o.id),'[]') AS items,
+        COALESCE((SELECT sum(amount_millimes) FROM order_payment_events e WHERE e.order_id=o.id AND kind='collected'),0)::text AS collected,
+        COALESCE((SELECT sum(amount_millimes) FROM order_payment_events e WHERE e.order_id=o.id AND kind='refunded'),0)::text AS refunded
+       FROM orders o WHERE ($1::uuid[] IS NULL OR o.id=ANY($1))
+       AND ($2::date IS NULL OR o.created_at >= ($2::date::timestamp AT TIME ZONE 'Africa/Tunis'))
+       AND ($3::date IS NULL OR o.created_at < (($3::date+1)::timestamp AT TIME ZONE 'Africa/Tunis'))
+       AND ($4::text IS NULL OR o.status=$4) ORDER BY o.created_at,o.id LIMIT 51`,
+      [input.ids ?? null, input.from ?? null, input.to ?? null, input.status ?? null]
+    );
+    if (result.rows.length > 50)
+      throw new BadRequestException(
+        'Plus de 50 commandes : réduisez la période ou choisissez des commandes.'
+      );
+    if (input.ids && result.rows.length !== input.ids.length)
+      throw new NotFoundException('Une commande sélectionnée est introuvable');
+    return result.rows.map((row) => ({
+      ...mapOrder(row),
+      items: row.items,
+      collectedMillimes: Number(row.collected),
+      refundedMillimes: Number(row.refunded)
+    }));
   }
   async detail(id: string) {
     const order = await this.database.query<OrderRow>('SELECT * FROM orders WHERE id=$1', [id]);

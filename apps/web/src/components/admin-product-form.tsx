@@ -62,7 +62,9 @@ export function AdminProductForm({
   const [removedImages, setRemovedImages] = useState<string[]>([]);
 
   useEffect(() => {
-    apiRequest<ApiCategory[]>('/categories')
+    apiRequest<ApiCategory[]>('/admin/categories', {
+      headers: { Authorization: `Bearer ${getAdminToken()}` }
+    })
       .then(setCategories)
       .catch((reason) =>
         setError(reason instanceof Error ? reason.message : 'Impossible de charger les catégories.')
@@ -270,6 +272,7 @@ export function AdminProductForm({
                   {categories.map((category) => (
                     <option value={category.id} key={category.id}>
                       {category.name}
+                      {category.isVisible === false ? ' — masquée dans la boutique' : ''}
                     </option>
                   ))}
                 </select>

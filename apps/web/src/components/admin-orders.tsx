@@ -6,6 +6,7 @@ import { formatMillimes } from '../lib/api';
 import { orderLabels, orderTransitions, type ApiOrder } from '../lib/orders';
 import { AdminIcon } from './admin-icon';
 import { AdminOrderFinance } from './admin-order-finance';
+import { AdminDeliveryNotes } from './admin-delivery-notes';
 import { AdminPageHeader, AdminLoading, StatusBadge } from './admin-ui';
 
 export function AdminOrders() {
@@ -16,13 +17,24 @@ export function AdminOrders() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [revision, setRevision] = useState(0);
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+  const [selected, setSelected] = useState<string[]>([]);
+  function toggle(id: string) {
+    setSelected((ids) =>
+      ids.includes(id) ? ids.filter((value) => value !== id) : ids.length < 50 ? [...ids, id] : ids
+    );
+  }
+  const wholePageSelected =
+    orders.length > 0 && orders.every((order) => selected.includes(order.id));
+  const pageExceedsLimit = new Set([...selected, ...orders.map((order) => order.id)]).size > 50;
   useEffect(() => {
     let active = true;
     setLoading(true);
     setError('');
     const timeout = setTimeout(() => {
       adminRequest<ApiOrder[]>(
-        `/admin/orders?limit=30&offset=${offset}&q=${encodeURIComponent(query)}&status=${status}`
+        `/admin/orders?limit=30&offset=${offset}&q=${encodeURIComponent(query)}&status=${status}${from ? `&from=${from}` : ''}${to ? `&to=${to}` : ''}`
       )
         .then((data) => {
           if (active) setOrders(data);
@@ -38,7 +50,7 @@ export function AdminOrders() {
       active = false;
       clearTimeout(timeout);
     };
-  }, [query, status, offset, revision]);
+  }, [query, status, offset, revision, from, to]);
   return (
     <>
       <AdminPageHeader
@@ -55,6 +67,7 @@ export function AdminOrders() {
             onChange={(event) => {
               setQuery(event.target.value);
               setOffset(0);
+              setSelected([]);
             }}
             placeholder="Référence, nom ou téléphone"
           />
@@ -66,6 +79,7 @@ export function AdminOrders() {
             onChange={(event) => {
               setStatus(event.target.value);
               setOffset(0);
+              setSelected([]);
             }}
           >
             <option value="">Tous</option>
@@ -75,6 +89,32 @@ export function AdminOrders() {
               </option>
             ))}
           </select>
+        </label>
+        <label>
+          Commandes du
+          <input
+            type="date"
+            value={from}
+            max={to || undefined}
+            onChange={(event) => {
+              setFrom(event.target.value);
+              setOffset(0);
+              setSelected([]);
+            }}
+          />
+        </label>
+        <label>
+          Au (inclus)
+          <input
+            type="date"
+            value={to}
+            min={from || undefined}
+            onChange={(event) => {
+              setTo(event.target.value);
+              setOffset(0);
+              setSelected([]);
+            }}
+          />
         </label>
         <button
           className="admin-secondary-button"
@@ -92,10 +132,30 @@ export function AdminOrders() {
         <AdminLoading label="Chargement des commandes…" />
       ) : (
         <section className="admin-panel">
+          <div className="orders-selection-toolbar">
+            <label className="order-select">
+              <input
+                type="checkbox"
+                aria-label="Sélectionner cette page"
+                checked={wholePageSelected}
+                disabled={!orders.length || !!error || (pageExceedsLimit && !wholePageSelected)}
+                onChange={(event) =>
+                  setSelected((ids) =>
+                    event.target.checked
+                      ? [...new Set([...ids, ...orders.map((order) => order.id)])]
+                      : ids.filter((id) => !orders.some((order) => order.id === id))
+                  )
+                }
+              />
+              Sélectionner cette page
+            </label>
+            <span role="status">{selected.length}/50 commande(s) sélectionnée(s)</span>
+          </div>
           <div className="admin-table-wrap">
             <table className="admin-table orders-table">
               <thead>
                 <tr>
+                  <th>Sélection</th>
                   <th>Commande</th>
                   <th>Client</th>
                   <th>Total</th>
@@ -105,9 +165,24 @@ export function AdminOrders() {
               <tbody>
                 {orders.map((order) => (
                   <tr key={order.id}>
+                    <td data-label="Sélection">
+                      <label className="order-select">
+                        <input
+                          type="checkbox"
+                          aria-label={`Sélectionner ${order.reference}`}
+                          checked={selected.includes(order.id)}
+                          disabled={selected.length >= 50 && !selected.includes(order.id)}
+                          onChange={() => toggle(order.id)}
+                        />
+                      </label>
+                    </td>
                     <td data-label="Commande">
                       <Link href={`/admin/commandes/${order.id}`}>{order.reference}</Link>
-                      <small>{new Date(order.createdAt).toLocaleString('fr-TN')}</small>
+                      <small>
+                        {new Date(order.createdAt).toLocaleString('fr-TN', {
+                          timeZone: 'Africa/Tunis'
+                        })}
+                      </small>
                     </td>
                     <td data-label="Client">
                       {order.customer.firstName} {order.customer.lastName}
@@ -148,6 +223,14 @@ export function AdminOrders() {
           Suivant
         </button>
       </div>
+      <AdminDeliveryNotes
+        key={`${selected.join(',')}:${from}:${to}:${status}:${revision}`}
+        selected={selected}
+        from={from}
+        to={to}
+        status={status}
+        clearSelection={() => setSelected([])}
+      />
     </>
   );
 }

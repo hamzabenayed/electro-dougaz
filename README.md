@@ -496,3 +496,61 @@ products and orders, then drops only that test schema. Shop data is untouched. T
 user needs permission to create/drop a schema. Tests cover authorization, draft/publish/edit,
 search/category/detail, totals, concurrent idempotency, stock reservation, order processing,
 tracking privacy, cancellation, stock adjustments, categories and logout.
+
+### Admin catalogue, stock history and delivery notes (November 2026)
+
+**Deployment prerequisite:** apply `apps/shared/migrations/20261109010000_stock_history.sql`
+with `pnpm db:migrate` against the intended database **before deploying the new API**. It adds
+stock before/after snapshots, retry keys and new movement reasons. Back up the database first.
+Use the existing secret environment configuration for Neon; never commit a connection URL or
+paste it into chat. This change does not migrate or modify the hosted database automatically.
+Then deploy the API and frontend. No new production environment variable is required.
+
+- **Catégories:** Masquer / Afficher changes storefront visibility and keeps the category and
+  products editable in admin. Hidden categories also block public product/media/checkout access.
+  Supprimer requires confirmation and an empty category; move its products first. Manager/owner
+  permissions are required, and actions are audited. The product editor includes hidden categories.
+- **Produits:** filter Disponible, En rupture or À réapprovisionner before server pagination.
+  Rupture means **all active options have zero stock**; low stock means at least one active option
+  is at/below its alert threshold. The displayed quantity totals all active options.
+- **Stock:** the history lists date (Africa/Tunis), product/SKU, signed quantity, before → after,
+  reason, order reference and actor. Search, date and entry/exit filters use 50-row pages. Initial
+  stock, product-editor changes, manual adjustments, order reservations and cancellations are
+  recorded transactionally. Old movements remain intact with unknown historical balances shown
+  explicitly; no fabricated backfill. Manual retries reuse a UUID so a network retry cannot add
+  the same stock twice. Historical product names/SKUs follow the current catalogue values.
+- **Documents:** single-order documents and bulk delivery notes share the logo, blue/red palette,
+  customer/address/SKU/quantity details, recorded collection balance and signature fields.
+  They are operational documents, **not fiscal invoices or proof of payment**. Returned/cancelled
+  orders are marked not to collect payment. Browser Print → Save as PDF remains the export method;
+  enable background graphics if your browser/printer omits the colours.
+- **Commandes → Bons de livraison groupés:** select individual checkboxes (or the current page),
+  then Préparer la sélection; selections can span pages, maximum 50. Changing filters clears the
+  selection; changing the dates/status also clears a prepared period preview. Alternatively set
+  both dates and choose Préparer la période. This uses order
+  **creation dates in Tunis time**, both days inclusive, plus the status filter; the text search is
+  deliberately not applied to a period export. Every order status is allowed and printed clearly.
+  More than 50 matching orders produces an error, never a silently incomplete batch. Narrow the
+  dates/status or select specific orders. Preview before printing; each order starts a fresh page,
+  and long item lists may continue across pages. Documents are fetched through authenticated,
+  non-cacheable requests and are not stored as public PDF URLs.
+
+Verification:
+
+```powershell
+pnpm --filter @electro/api test
+pnpm --filter @electro/api test:flow
+pnpm --filter @electro/web exec vitest run --maxWorkers=1
+pnpm --filter @electro/web build
+pnpm --filter @electro/web exec playwright test admin-operations.spec.ts commerce-management.spec.ts
+```
+
+The API flow includes category hide/restore/safe deletion and permissions, mixed-option stock
+filters, concurrent stock retries, before/after history, product-editor changes and delivery-note
+date boundaries. It requires running **local PostgreSQL**; optional `TEST_DATABASE_URL` overrides
+the local `.env` connection for a disposable local test server (remote hosts are still refused).
+Browser tests use synthetic data at 360, 768 and 1440px in light/dark mode and check branded,
+two-order PDF pagination. Run a hosted smoke test after migration/deployment: hide/restore a test
+category, add five units and verify the history, select two test orders, save the PDF and check
+both references, logo, totals and page breaks. These automated checks do not verify hosted secrets,
+live customer data or a physical printer.

@@ -19,6 +19,7 @@ export interface ApiOrder {
   items?: Array<{
     id: string;
     productName: string;
+    sku?: string;
     quantity: number;
     unitPriceMillimes: number;
     lineTotalMillimes: number;

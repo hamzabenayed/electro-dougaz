@@ -3,6 +3,7 @@ import { normalizePhone } from './phone.js';
 import {
   ArrayMaxSize,
   ArrayMinSize,
+  ArrayUnique,
   IsArray,
   IsIn,
   IsInt,
@@ -61,10 +62,38 @@ export class TrackOrderDto {
   phone!: string;
 }
 export class OrderQueryDto {
+  @IsOptional() @Matches(/^\d{4}-\d{2}-\d{2}$/) from?: string;
+  @IsOptional() @Matches(/^\d{4}-\d{2}-\d{2}$/) to?: string;
   @IsOptional() @IsString() @MaxLength(100) q?: string;
   @IsOptional() @IsString() @MaxLength(30) status?: string;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100) limit = 30;
   @IsOptional() @Type(() => Number) @IsInt() @Min(0) offset = 0;
+}
+export class DeliveryNotesDto {
+  @IsIn(['selection', 'dates']) mode!: 'selection' | 'dates';
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(50)
+  @ArrayUnique()
+  @IsUUID('all', { each: true })
+  ids?: string[];
+  @IsOptional() @Matches(/^\d{4}-\d{2}-\d{2}$/) from?: string;
+  @IsOptional() @Matches(/^\d{4}-\d{2}-\d{2}$/) to?: string;
+  @IsOptional()
+  @IsIn([
+    'pending',
+    'confirmed',
+    'preparing',
+    'shipped',
+    'delivered',
+    'delivery_failed',
+    'returned',
+    'cancelled',
+    'awaiting_payment',
+    'payment_failed'
+  ])
+  status?: string;
 }
 export class UpdateOrderStatusDto {
   @IsIn([

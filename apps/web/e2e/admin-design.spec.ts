@@ -53,7 +53,11 @@ async function mockApi(page: Page) {
   await page.route('**/api/v1/**', async (route) => {
     const url = new URL(route.request().url());
     const endpoint = url.pathname.replace('/api/v1', '');
-    if (endpoint.endsWith('/payments') || endpoint.endsWith('/accessories')) {
+    if (
+      endpoint.endsWith('/payments') ||
+      endpoint.endsWith('/accessories') ||
+      endpoint === '/admin/inventory/history'
+    ) {
       await route.fulfill({ json: [] });
       return;
     }
