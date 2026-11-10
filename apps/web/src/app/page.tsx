@@ -6,6 +6,7 @@ import { CartSummaryButton, MobileCartButton } from '../components/cart-controls
 import { apiRequest, type ApiProduct, type ApiCategory } from '../lib/api';
 import { fromApiProduct } from '../lib/catalog';
 import { CatalogCard } from '../components/catalog-card';
+import { StoreSearch } from '../components/store-search';
 import { HeroPromotions } from '../components/hero-promotions';
 import { selectHeroPromotions } from '../lib/hero-promotions';
 export const dynamic = 'force-dynamic';
@@ -156,34 +157,13 @@ export default async function HomePage() {
             <Icon name="menu" />
           </Link>
           <Brand />
-          <form className="search" role="search" action="/recherche" method="get">
-            <Icon name="search" size={21} />
-            <label className="sr-only" htmlFor="store-search">
-              Rechercher un produit
-            </label>
-            <input id="store-search" name="q" type="search" placeholder="Que recherchez-vous ?" />
-            <button type="submit">Rechercher</button>
-          </form>
+          <StoreSearch />
           <nav className="header-actions" aria-label="Actions personnelles">
             <CartSummaryButton className="cart-action" />
           </nav>
         </div>
         <div className="container mobile-search-wrap">
-          <form className="search mobile-search" role="search" action="/recherche" method="get">
-            <Icon name="search" size={20} />
-            <label className="sr-only" htmlFor="mobile-store-search">
-              Rechercher un produit
-            </label>
-            <input
-              id="mobile-store-search"
-              name="q"
-              type="search"
-              placeholder="Rechercher un produit..."
-            />
-            <button type="submit" aria-label="Lancer la recherche">
-              <Icon name="arrow" size={20} />
-            </button>
-          </form>
+          <StoreSearch className="search mobile-search" compact />
         </div>
         <nav className="category-nav" aria-label="Catégories principales">
           <div className="container category-nav-inner">

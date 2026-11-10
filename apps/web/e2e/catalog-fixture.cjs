@@ -81,6 +81,18 @@ createServer((req, res) => {
     res.statusCode = 404;
     data = { message: 'Not found' };
   }
+  if (url.pathname === '/api/v1/products' && url.searchParams.get('q') === 'card-showcase') {
+    data = variants.map((variant, index) => ({
+      ...product,
+      id: `card-${index}`,
+      name:
+        index === 0
+          ? 'Smartphone Démo avec écran haute définition et une très longue description du modèle'
+          : `Smartphone Démo ${index + 1}`,
+      variant,
+      variants: [variant]
+    }));
+  }
   res.setHeader('Content-Type', 'application/json');
   res.end(JSON.stringify(data));
 }).listen(4101, '127.0.0.1');

@@ -2,6 +2,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import logo from '../../../../public/logo/logo-enhanced.png';
 import { CartSummaryButton } from './cart-controls';
+import { StoreSearch } from './store-search';
 
 export function InnerHeader() {
   return (
@@ -15,13 +16,7 @@ export function InnerHeader() {
             Electro <strong>Dougaz</strong>
           </span>
         </Link>
-        <form className="inner-search" action="/recherche" role="search">
-          <label className="sr-only" htmlFor="inner-search">
-            Rechercher
-          </label>
-          <input id="inner-search" name="q" type="search" placeholder="Rechercher un produit" />
-          <button type="submit">Rechercher</button>
-        </form>
+        <StoreSearch className="inner-search" />
         <CartSummaryButton className="cart-action" />
       </div>
       <nav className="container shop-quick-nav" aria-label="Navigation boutique">

@@ -9,6 +9,8 @@ import './storefront-features.css';
 import './commerce-enhancements.css';
 import './promotion-showcase.css';
 import './storefront-hero.css';
+import './store-search.css';
+import './catalog-cards.css';
 
 export const metadata: Metadata = {
   title: {

@@ -13,7 +13,7 @@ for (const width of [320, 390, 768, 1440]) {
       await page.goto('/');
       const hero = page.getByRole('region', { name: 'Promotions à découvrir' });
       await expect(hero).toBeVisible();
-      await expect(page.locator('.hero-copy h1')).toContainText('À prix coup de cœur.');
+      await expect(page.locator('.hero-copy:visible h1')).toContainText('À prix coup de cœur.');
       await expect(hero.locator('.hero-offer-stock')).toContainText('Disponible');
       expect(await hero.evaluate((element) => getComputedStyle(element).animationName)).toBe(
         'none'
@@ -28,7 +28,7 @@ for (const width of [320, 390, 768, 1440]) {
       await expect(hero.locator('del')).toBeVisible();
       await expect(hero.locator('.product-promotion')).toHaveText('−20 %');
       await expect(hero.getByRole('button')).toHaveCount(0);
-      const panel = page.locator('.offers-panel');
+      const panel = page.locator('.offers-panel:visible');
       await panel.scrollIntoViewIfNeeded();
       const bounds = await panel.boundingBox();
       expect(bounds!.x).toBeGreaterThan(0);

@@ -53,7 +53,7 @@ describe('HomePage', () => {
 
   it('provides a search-first shopping path and accessible cart actions', async () => {
     await renderHome();
-    expect(screen.getAllByRole('searchbox')).toHaveLength(2);
+    expect(screen.getAllByRole('combobox')).toHaveLength(2);
     expect(screen.getByRole('link', { name: /découvrir les offres/i })).toBeTruthy();
     expect(screen.getAllByRole('button', { name: /ajouter .* au panier/i })).toHaveLength(4);
   });

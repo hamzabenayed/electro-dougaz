@@ -557,6 +557,31 @@ live customer data or a physical printer.
 
 ## Storefront promotion showcase
 
+### Shared product cards
+
+Catalogue cards use one responsive composition across homepage, promotions, categories and search:
+a dedicated availability/discount row, contained 4:3 product imagery, two-line titles, aligned price
+slots and a full-width 46px action. Grids adapt their column count to keep cards readable rather
+than squeezing desktop cards onto phones. Promotion actions use the brand red; normal actions
+use blue. Sold-out single options are disabled, while multi-option products retain selection.
+Hover-capable devices receive gentle lift/zoom; touch actions have press feedback. Reduced motion
+disables transforms/transitions, and keyboard focus remains visible. No inventory count is exposed.
+
+### Live catalogue search
+
+The homepage (desktop/mobile) and inner storefront headers share an accessible autocomplete.
+Focus shows visible category shortcuts and a promotions link; typing requests up to six public
+products after 250ms. Public search matches product names, descriptions, category names and active
+variant names/references (case-insensitive substring matching, not typo correction). Category
+suggestions also ignore accents. Cards show images, actual prices/discounts and availability,
+never stock counts. Arrow keys navigate, Enter chooses, and Escape/outside click dismisses.
+Full results remain available with the existing price, stock, category and promotion filters.
+Requests are aborted on changes/close, stale responses ignored, and requests time out after 10s.
+Categories are cached only for the mounted field; search terms are not saved in browser storage.
+Network errors and empty results have distinct messages. No migration or search service is needed;
+deploy both API and frontend for the expanded category/reference matching.
+Tests: `store-search.test.tsx`, `catalog-search.test.ts`, and `e2e/store-search.spec.ts`.
+
 On phones (up to 760px), the homepage header reserves separate grid columns for the menu,
 brand and cart. The cart displays its icon/count rather than a wide total; its accessible
 label and drawer retain cart details. Only the delivery announcement is shown on phones,

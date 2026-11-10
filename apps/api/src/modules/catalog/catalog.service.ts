@@ -251,7 +251,7 @@ export class CatalogService {
     );
     const result = await this.database.query<ProductRow>(
       this.publicPrices(
-        `${filteredSelect} WHERE p.status = 'published' AND c.is_visible = true AND ($1::text IS NULL OR c.slug = $1) AND ($2::text IS NULL OR p.name ILIKE '%' || $2 || '%' OR p.description ILIKE '%' || $2 || '%')
+        `${filteredSelect.replace('ORDER BY effective_price', "ORDER BY CASE WHEN $2::text IS NOT NULL AND (sku ILIKE '%' || $2 || '%' OR name ILIKE '%' || $2 || '%') THEN 0 ELSE 1 END,effective_price")} WHERE p.status = 'published' AND c.is_visible = true AND ($1::text IS NULL OR c.slug = $1) AND ($2::text IS NULL OR p.name ILIKE '%' || $2 || '%' OR p.description ILIKE '%' || $2 || '%' OR c.name ILIKE '%' || $2 || '%' OR EXISTS(SELECT 1 FROM product_variants s WHERE s.product_id=p.id AND s.is_active=true AND (s.sku ILIKE '%' || $2 || '%' OR s.name ILIKE '%' || $2 || '%')))
       AND EXISTS (SELECT 1 FROM product_variants f WHERE f.product_id=p.id AND f.is_active=true AND ($5::integer IS NULL OR f.price_millimes >= $5) AND ($6::integer IS NULL OR f.price_millimes <= $6) AND (NOT $7::boolean OR f.stock_quantity>0) AND (NOT $8::boolean OR f.compare_at_price_millimes>f.price_millimes))
       ORDER BY ${sort} LIMIT $3 OFFSET $4`
       ).replaceAll(

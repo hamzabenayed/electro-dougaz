@@ -38,7 +38,7 @@ for (const width of [320, 360, 390, 430, 760, 768, 1440]) {
         await expect(header.locator('.brand-name')).toBeVisible();
         await expect(page.locator('.announcement:visible .announcement-note')).toBeHidden();
         const search = page.locator('.mobile-search:visible');
-        const input = await search.getByRole('searchbox').boundingBox();
+        const input = await search.getByRole('combobox').boundingBox();
         const submit = await search.getByRole('button').boundingBox();
         expect(input!.width).toBeGreaterThan(100);
         expect(input!.x + input!.width).toBeLessThanOrEqual(submit!.x);
@@ -54,7 +54,7 @@ for (const width of [320, 360, 390, 430, 760, 768, 1440]) {
       await page.getByRole('button', { name: 'Fermer le panier' }).click();
       await expect(cart).toBeFocused();
       if (width <= 760) {
-        await page.locator('.mobile-search:visible').getByRole('searchbox').fill('Smartphone');
+        await page.locator('.mobile-search:visible').getByRole('combobox').fill('Smartphone');
         await page.locator('.mobile-search:visible').getByRole('button').click();
         await expect(page).toHaveURL(/\/recherche\?q=Smartphone/);
       }
